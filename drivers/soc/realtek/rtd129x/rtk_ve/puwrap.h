@@ -8,7 +8,6 @@
 #include <linux/reset-helper.h>
 #include <linux/reset.h>
 
-
 #define PDI_IOCTL_MAGIC  'V'
 
 #define PLL_CLK_715 (0x10D336)
@@ -22,14 +21,19 @@
 
 #define UNUSED_PARAMETER(p) (void)(p)
 
+#define MISC_JPU_MINOR 107
+#define MISC_MEM_MINOR 108
+#define MISC_VE3_MINOR 109
+#define MISC_VE1_MINOR 110
+
 typedef struct pu_drv_context_t {
-    struct fasync_struct *async_queue;
-    unsigned long jpu_interrupt_reason;
-    unsigned long vpu_interrupt_reason;
+	struct fasync_struct *async_queue;
+	unsigned long jpu_interrupt_reason;
+	unsigned long vpu_interrupt_reason;
 } pu_drv_context_t;
 
 #ifdef CONFIG_RTK_RESERVE_MEMORY
-int pu_alloc_dma_buffer(unsigned int size, unsigned long *phys_addr, unsigned long *base);
+int pu_alloc_dma_buffer(unsigned int size, unsigned long *phys_addr, unsigned long *base, unsigned int mem_type);
 void pu_free_dma_buffer(unsigned long base, unsigned long phys_addr);
 int pu_mmap_dma_buffer(struct vm_area_struct *vm);
 #endif

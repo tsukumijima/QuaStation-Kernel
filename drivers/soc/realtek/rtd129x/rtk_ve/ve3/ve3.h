@@ -9,7 +9,7 @@
 //#define HANTRODEC_DEBUG
 #ifdef HANTRODEC_DEBUG
 #  ifdef __KERNEL__
-#    define PDEBUG(fmt, args...) printk( KERN_INFO "VE3: " fmt, ## args)
+#    define PDEBUG(fmt, args...) pr_info(fmt, ## args)
 #  else
 #    define PDEBUG(fmt, args...) fprintf(stderr, fmt, ## args)
 #  endif
@@ -68,6 +68,9 @@ struct core_desc
 #define HANTRODEC_RESET_CLK_GATING   _IO(HANTRODEC_IOC_MAGIC, 27)
 #define HANTRODEC_NOTIFY_RELEASE     _IO(HANTRODEC_IOC_MAGIC, 26)
 #define HANTRODEC_GET_ASIC_REVISION  _IOR(HANTRODEC_IOC_MAGIC, 25, unsigned int)
+#define HANTRODEC_GET_ASIC_REG       _IOWR(HANTRODEC_IOC_MAGIC, 24, struct core_desc)
+#define HANTRODEC_BONDINGOFFSET      _IOR(HANTRODEC_IOC_MAGIC,  23, unsigned long)
+#define HANTRODEC_BONDINGIOSIZE      _IOR(HANTRODEC_IOC_MAGIC,  22, unsigned int)
 
 #define HANTRODEC_IOC_MAXNR 29
 

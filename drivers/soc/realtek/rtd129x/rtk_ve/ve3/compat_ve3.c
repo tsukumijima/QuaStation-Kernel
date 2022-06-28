@@ -38,6 +38,9 @@ struct compat_core_desc
 #define COMPAT_HANTRODEC_IOCS_DEC_PULL_REG _IOWR(HANTRODEC_IOC_MAGIC, 17, struct compat_core_desc)
 #define COMPAT_HANTRODEC_IOCG_CORE_WAIT _IOR(HANTRODEC_IOC_MAGIC, 19, compat_int_t)
 #define COMPAT_HANTRODEC_IOX_ASIC_ID _IOWR(HANTRODEC_IOC_MAGIC, 20, compat_uint_t)
+#define COMPAT_HANTRODEC_GET_ASIC_REG _IOWR(HANTRODEC_IOC_MAGIC, 24, struct compat_core_desc)
+#define COMPAT_HANTRODEC_BONDINGOFFSET      _IOR(HANTRODEC_IOC_MAGIC,  23, compat_ulong_t)
+#define COMPAT_HANTRODEC_BONDINGIOSIZE      _IOR(HANTRODEC_IOC_MAGIC,  22, compat_uint_t)
 
 static int compat_get_ve3_core_desc_data(
     struct compat_core_desc __user *data32,
@@ -101,6 +104,7 @@ long compat_hantrodec_ioctl(struct file *filp, unsigned int cmd, unsigned long a
     }
 
     case COMPAT_HANTRODEC_IOCGHWOFFSET:
+    case COMPAT_HANTRODEC_BONDINGOFFSET:
     {
         compat_ulong_t __user *data32;
         unsigned long __user *data;
@@ -117,13 +121,17 @@ long compat_hantrodec_ioctl(struct file *filp, unsigned int cmd, unsigned long a
         if (err)
             return err;
 
-        ret = filp->f_op->unlocked_ioctl(filp, HANTRODEC_IOCGHWOFFSET, (unsigned long)data);
+        if (cmd == COMPAT_HANTRODEC_IOCGHWOFFSET)
+            ret = filp->f_op->unlocked_ioctl(filp, HANTRODEC_IOCGHWOFFSET, (unsigned long)data);
+        else
+            ret = filp->f_op->unlocked_ioctl(filp, HANTRODEC_BONDINGOFFSET, (unsigned long)data);
         err = get_user(n, data);
         err |= put_user(n, data32);
         return ret ? ret : err;
     }
 
     case COMPAT_HANTRODEC_IOCGHWIOSIZE:
+    case COMPAT_HANTRODEC_BONDINGIOSIZE:
     {
         compat_uint_t __user *data32;
         unsigned int __user *data;
@@ -140,7 +148,10 @@ long compat_hantrodec_ioctl(struct file *filp, unsigned int cmd, unsigned long a
         if (err)
             return err;
 
-        ret = filp->f_op->unlocked_ioctl(filp, HANTRODEC_IOCGHWIOSIZE, (unsigned long)data);
+        if (cmd == COMPAT_HANTRODEC_IOCGHWIOSIZE)
+            ret = filp->f_op->unlocked_ioctl(filp, HANTRODEC_IOCGHWIOSIZE, (unsigned long)data);
+        else
+            ret = filp->f_op->unlocked_ioctl(filp, HANTRODEC_BONDINGIOSIZE, (unsigned long)data);
         err = get_user(n, data);
         err |= put_user(n, data32);
         return ret ? ret : err;
@@ -291,10 +302,28 @@ long compat_hantrodec_ioctl(struct file *filp, unsigned int cmd, unsigned long a
         err |= put_user(n, data32);
         return ret ? ret : err;
     }
+    case COMPAT_HANTRODEC_GET_ASIC_REG:
+    {
+        struct compat_core_desc __user *data32;
+        struct core_desc __user *data;
+        int err;
+
+        data32 = compat_ptr(arg);
+        data = compat_alloc_user_space(sizeof(*data));
+        if (data == NULL)
+            return -EFAULT;
+
+        err = compat_get_ve3_core_desc_data(data32, data);
+        if (err)
+            return err;
+        ret = filp->f_op->unlocked_ioctl(filp, HANTRODEC_GET_ASIC_REG, (unsigned long)data);
+        err = compat_put_ve3_core_desc_data(data32, data);
+        return ret ? ret : err;
+    }
 
     default:
     {
-        printk(KERN_ERR "[COMPAT_VE3] No such IOCTL, cmd is 0x%x\n", cmd);
+        printk(KERN_ERR "[COMPAT_VE3] No such IOCTL, cmd is 0x%x[0x%x, 0x%x]\n", cmd, COMPAT_HANTRODEC_BONDINGOFFSET, COMPAT_HANTRODEC_BONDINGIOSIZE);
         return -ENOIOCTLCMD;
     }
     }

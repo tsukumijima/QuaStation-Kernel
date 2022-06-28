@@ -40,7 +40,7 @@ typedef struct compat_jpudrv_intr_info_t {
 #define COMPAT_JDI_IOCTL_GET_INSTANCE_POOL _IO(JDI_IOCTL_MAGIC, 5)
 #define COMPAT_JDI_IOCTL_GET_RESERVED_VIDEO_MEMORY_INFO _IO(JDI_IOCTL_MAGIC, 6)
 #define COMPAT_JDI_IOCTL_GET_REGISTER_INFO _IO(JDI_IOCTL_MAGIC, 11)
-
+#define COMPAT_JDI_IOCTL_GET_BONDING_INFO _IO(JDI_IOCTL_MAGIC, 13)
 
 static int compat_get_jpu_buffer_data(
     compat_jpudrv_buffer_t __user *data32,
@@ -235,6 +235,7 @@ long compat_jpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     }
 
     case COMPAT_JDI_IOCTL_GET_REGISTER_INFO:
+    case COMPAT_JDI_IOCTL_GET_BONDING_INFO:
     {
         compat_jpudrv_buffer_t __user *data32;
         jpudrv_buffer_t __user *data;
@@ -248,7 +249,10 @@ long compat_jpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         err = compat_get_jpu_buffer_data(data32, data);
         if (err)
             return err;
-        ret = filp->f_op->unlocked_ioctl(filp, JDI_IOCTL_GET_REGISTER_INFO, (unsigned long)data);
+        if (cmd == COMPAT_JDI_IOCTL_GET_REGISTER_INFO)
+            ret = filp->f_op->unlocked_ioctl(filp, JDI_IOCTL_GET_REGISTER_INFO, (unsigned long)data);
+        else
+            ret = filp->f_op->unlocked_ioctl(filp, JDI_IOCTL_GET_BONDING_INFO, (unsigned long)data);
         err = compat_put_jpu_buffer_data(data32, data);
         return ret ? ret : err;
     }

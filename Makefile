@@ -1632,19 +1632,20 @@ kernel-build:
 	@echo '--------------------------------------------------------------------------------'
 	cp -a ${BASE_DIRECTORY}/prebuilt/firmware/* ${BASE_DIRECTORY}/output/lib/firmware/
 	cp -a ${BASE_DIRECTORY}/prebuilt/openmax/* ${BASE_DIRECTORY}/output/
-	mkdir -p ${BASE_DIRECTORY}/output/lib/modules/4.1.17-quastation/kernel/extra/
-	cp -a ${BASE_DIRECTORY}/prebuilt/gpio_isr_ko ${BASE_DIRECTORY}/output/lib/modules/4.1.17-quastation/kernel/extra/gpio_isr.ko
-	depmod --all --basedir=${BASE_DIRECTORY}/output/ 4.1.17-quastation
+	mkdir -p ${BASE_DIRECTORY}/output/lib/modules/4.1.17/kernel/extra/
+	cp -a ${BASE_DIRECTORY}/prebuilt/gpio_isr_ko ${BASE_DIRECTORY}/output/lib/modules/4.1.17/kernel/extra/gpio_isr.ko
+	depmod --all --basedir=${BASE_DIRECTORY}/output/ 4.1.17
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Creating a package for USB flash...'
 	@echo '--------------------------------------------------------------------------------'
-	rm -rf ${BASE_DIRECTORY}/usbflash/
+	sudo rm -rf ${BASE_DIRECTORY}/usbflash/
 	mkdir -p ${BASE_DIRECTORY}/usbflash/
 	mkdir -p ${BASE_DIRECTORY}/usbflash/bootfs/
 	cp -a ${BASE_DIRECTORY}/arch/arm64/boot/Image ${BASE_DIRECTORY}/usbflash/bootfs/uImage
 	cp -a ${BASE_DIRECTORY}/arch/arm64/boot/dts/realtek/rtd-1295-quastation.dtb ${BASE_DIRECTORY}/usbflash/bootfs/QuaStation.dtb
 	mkdir -p ${BASE_DIRECTORY}/usbflash/rootfs/
 	cp -a ${BASE_DIRECTORY}/output/* ${BASE_DIRECTORY}/usbflash/rootfs/
+	sudo chown -R root:root usbflash/
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Build completed.'
 	@echo '--------------------------------------------------------------------------------'

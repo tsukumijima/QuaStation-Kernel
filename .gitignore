@@ -125,3 +125,5 @@ kernel/configs/android-*.cfg
 # --------------------------------
 output/
 usbflash/
+!prebuilt/firmware/*/*.bin
+!prebuilt/gpio_isr.ko

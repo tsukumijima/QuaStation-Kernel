@@ -24,6 +24,7 @@
 
 #include "puwrap.h"
 
+
 #ifdef CONFIG_RTK_RESERVE_MEMORY
 #define USE_ION_ALLOCATOR
 #ifdef USE_ION_ALLOCATOR
@@ -55,8 +56,6 @@ typedef struct rtkdrv_buffer_t {
 static video_mm_t s_mem;
 static rtkdrv_buffer_t s_memory = {0};
 #endif /* endif USE_ION_ALLOCATOR */
-#define VE_SECURE_NORMAL 1
-#define VE_SECURE_PROTECTION 2
 #endif /* endif CONFIG_RTK_RESERVE_MEMORY */
 
 unsigned long pll_phy_register = 0;
@@ -67,7 +66,7 @@ unsigned long pll_size_register = 0;
 #define PU_PLATFORM_DEVICE_NAME "rtk_puwrap"
 
 #ifdef CONFIG_RTK_RESERVE_MEMORY
-int pu_alloc_dma_buffer(unsigned int size, unsigned long *phys_addr, unsigned long *base, unsigned int mem_type)
+int pu_alloc_dma_buffer(unsigned int size, unsigned long *phys_addr, unsigned long *base)
 {
     if (!size)
         return -1;
@@ -78,8 +77,6 @@ int pu_alloc_dma_buffer(unsigned int size, unsigned long *phys_addr, unsigned lo
     struct dma_buf *dmabuf;
     ion_phys_addr_t dat;
     size_t len;
-    int heap = RTK_PHOENIX_ION_HEAP_MEDIA_MASK;
-    int flags = (ION_FLAG_SCPUACC | ION_FLAG_HWIPACC | ION_FLAG_NONCACHED);
 
     mutex_lock(&s_pu_mutex);
     for (i = 0; i < NUM_ION_STRUCT; i++)
@@ -94,29 +91,7 @@ int pu_alloc_dma_buffer(unsigned int size, unsigned long *phys_addr, unsigned lo
         return -1;
     }
 
-    switch(mem_type)
-    {
-        case VE_SECURE_NORMAL:
-        {
-            heap = RTK_PHOENIX_ION_HEAP_MEDIA_MASK;
-            flags = (ION_FLAG_SCPUACC | ION_FLAG_HWIPACC | ION_FLAG_NONCACHED | ION_FLAG_VE_SPEC);
-            break;
-        }
-        case VE_SECURE_PROTECTION:
-        {
-            heap = RTK_PHOENIX_ION_HEAP_SECURE_MASK;
-            flags = (ION_FLAG_HWIPACC | ION_FLAG_NONCACHED);
-            break;
-        }
-        default:
-        {
-            heap = RTK_PHOENIX_ION_HEAP_MEDIA_MASK;
-            flags = (ION_FLAG_SCPUACC | ION_FLAG_HWIPACC | ION_FLAG_NONCACHED);
-            break;
-        }
-    }
-
-    handle = ion_alloc(pu_client, size, 1024, heap, flags);
+    handle = ion_alloc(pu_client, size, 1024, RTK_PHOENIX_ION_HEAP_MEDIA_MASK, (ION_FLAG_SCPUACC | ION_FLAG_HWIPACC | ION_FLAG_NONCACHED));
     if (IS_ERR(handle))
     {
         printk(KERN_ERR "[PUWRAP] ion_alloc allocation error size=%d\n", size);
@@ -362,7 +337,7 @@ static struct platform_driver pu_driver = {
 };
 #endif
 
-static ssize_t pu_memsize_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+static ssize_t pu_memsize_show(struct kobject *kobj, struct kobject_attribute *attr, char *buf)
 {
     return sprintf(buf, "%d\n", (int)(get_num_physpages() << PAGE_SHIFT));
 }

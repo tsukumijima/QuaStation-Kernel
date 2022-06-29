@@ -24,7 +24,6 @@
 
 /* RTK ioctl */
 #define JDI_IOCTL_SET_CLOCK_ENABLE			_IO(JDI_IOCTL_MAGIC, 12)
-#define JDI_IOCTL_GET_BONDING_INFO			_IO(JDI_IOCTL_MAGIC, 13)
 
 typedef struct jpudrv_buffer_t {
     unsigned int size;

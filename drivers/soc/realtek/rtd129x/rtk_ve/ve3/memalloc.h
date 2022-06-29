@@ -21,7 +21,6 @@ typedef struct {
     unsigned bus_address;
     unsigned size;
     unsigned translation_offset;
-    unsigned mem_type;
 } MemallocParams;
 
 #define MEMALLOC_IOC_MAGIC 'k'

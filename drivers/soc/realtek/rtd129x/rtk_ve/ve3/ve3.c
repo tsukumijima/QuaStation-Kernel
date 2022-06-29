@@ -1,6 +1,12 @@
 /* Copyright 2013 Google Inc. All Rights Reserved. */
-#include <linux/io.h>
-#include <linux/uaccess.h>
+
+#include "ve3.h"
+#include "compat_ve3.h"
+#include "dwl_defs.h"
+#include "../puwrap.h"
+
+#include <asm/io.h>
+#include <asm/uaccess.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -18,11 +24,12 @@
 #include <linux/version.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+
 #include <linux/platform_device.h>
 #include <linux/miscdevice.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
-#include <linux/clk.h>
+#include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 
 #include <soc/realtek/rtd129x_cpu.h>
@@ -31,26 +38,25 @@
 #include <linux/power-control.h>
 #endif
 
-#include "ve3.h"
-#include "compat_ve3.h"
-#include "dwl_defs.h"
-#include "../puwrap.h"
 
-#define HANTRO_DEC_REGS 265
+#define HANTRO_DEC_REGS                 265
 
-#define DEV_NAME "[RTK_VE3]"
-#define HANTRO_DEC_FIRST_REG 0
-#define HANTRO_DEC_LAST_REG	 HANTRO_DEC_REGS-1
-#define HANTRO_DEV_NAME "ve3"
+#define HANTRO_DEC_FIRST_REG            0
+#define HANTRO_DEC_LAST_REG             HANTRO_DEC_REGS-1
+#define HANTRO_DEV_NAME                 "ve3"
 
 /* Logic module IRQs */
-#define HXDEC_NO_IRQ -1
-/* module defaults */
-#define DEC_IO_SIZE (HANTRO_DEC_REGS * 4) /* bytes, PP regs included
-within dec regs. */
-#define DEC_IRQ HXDEC_NO_IRQ
+#define HXDEC_NO_IRQ                    -1
 
-static const int DecHwId[] = {0x6732};
+/* module defaults */
+#define DEC_IO_SIZE             (HANTRO_DEC_REGS * 4) /* bytes, PP regs included
+within dec regs. */
+#define DEC_IRQ                 HXDEC_NO_IRQ
+
+static const int DecHwId[] =
+{
+    0x6732
+};
 
 unsigned long base_port = -1;
 volatile u8 *base_address = NULL;
@@ -58,10 +64,11 @@ volatile u8 *base_address = NULL;
 unsigned long s_pll_phy_register = 0;
 unsigned long s_pll_virt_register = 0;
 unsigned long s_pll_size_register = 0;
-unsigned long s_bonding_phy_register = 0;
-unsigned long s_bonding_size_register = 0;
 
-u64 multicorebase[HXDEC_MAX_CORES] = {-1};
+u64 multicorebase[HXDEC_MAX_CORES] =
+{
+    -1
+};
 
 int ve3_irq = DEC_IRQ;
 int elements = 0;
@@ -79,14 +86,15 @@ static int hantrodec_major = 0; /* dynamic allocation */
 static struct miscdevice s_ve3_dev;
 
 /* here's all the must remember stuff */
-typedef struct{
-	char *buffer;
-	unsigned int iosize;
-	volatile u8 *hwregs[HXDEC_MAX_CORES];
-	int irq;
-	int cores;
-	struct fasync_struct *async_queue_dec;
-	struct fasync_struct *async_queue_pp;
+typedef struct
+{
+    char *buffer;
+    unsigned int iosize;
+    volatile u8 *hwregs[HXDEC_MAX_CORES];
+    int irq;
+    int cores;
+    struct fasync_struct *async_queue_dec;
+    struct fasync_struct *async_queue_pp;
 } hantrodec_t;
 
 static hantrodec_t hantrodec_data; /* dynamic allocation? */
@@ -107,8 +115,8 @@ static irqreturn_t hantrodec_isr(int irq, void *dev_id, struct pt_regs *regs);
 static irqreturn_t hantrodec_isr(int irq, void *dev_id);
 #endif
 
+
 static u32 dec_regs[HXDEC_MAX_CORES][DEC_IO_SIZE/4];
-static u32 asic_dec_regs[HXDEC_MAX_CORES][DEC_IO_SIZE/4];
 struct semaphore dec_core_sem;
 
 static int dec_irq = 0;
@@ -125,9 +133,9 @@ DECLARE_WAIT_QUEUE_HEAD(dec_wait_queue);
 
 DECLARE_WAIT_QUEUE_HEAD(hw_queue);
 
-#define DWL_CLIENT_TYPE_PP 4U
-#define DWL_CLIENT_TYPE_VP9_DEC 11U
-#define DWL_CLIENT_TYPE_HEVC_DEC 12U
+#define DWL_CLIENT_TYPE_PP               4U
+#define DWL_CLIENT_TYPE_VP9_DEC          11U
+#define DWL_CLIENT_TYPE_HEVC_DEC         12U
 
 static u32 cfg[HXDEC_MAX_CORES];
 
@@ -149,1057 +157,1072 @@ static struct power_control *ve3_pctrl_get(void);
 
 static void ve3_wrapper_setup(volatile u8 * base)
 {
-	unsigned int ctrl_1 = __raw_readl(base+0x3F00);
-	unsigned int ctrl_2 = __raw_readl(base+0x3F04);
-	if (get_rtd129x_cpu_revision() >= RTD129x_CHIP_REVISION_B00)
-		ctrl_1 = (ctrl_1 & ~0x7) | 0x3; /* ve3_ack_div_sel 'b011 = 8 */
-	else
-		ctrl_1 = (ctrl_1 & ~0x7) | 0x2; /* ve3_ack_div_sel 'b010 = 16 //HW has bug, we must use this value */
-	ctrl_1 |= 0x10; /* ve3_axi2cti_en */
-	ctrl_2 = (ctrl_2 & ~0x3f) | 0x1a; /* ve3_cti_cmd_depth for 1296 timing issue */
-	__raw_writel(ctrl_1, (base+0x3F00));
-	__raw_writel(ctrl_2, (base+0x3F04));
+    unsigned int ctrl_1 = __raw_readl(base+0x3F00);
+    unsigned int ctrl_2 = __raw_readl(base+0x3F04);
+    ctrl_1 = (ctrl_1 & ~0x7) | 0x3;         // ve3_ack_div_sel 'b011 = 8
+    ctrl_1 |= 0x10;                         // ve3_axi2cti_en
+    ctrl_2 = (ctrl_2 & ~0x3f) | 0x1a;        // ve3_cti_cmd_depth for 1296 timing issue
+    __raw_writel(ctrl_1, (base+0x3F00));
+    __raw_writel(ctrl_2, (base+0x3F04));
 }
 
 static void ve3_pll_setting(unsigned long offset, unsigned int value, unsigned int bOverwrite, unsigned int bEnable)
 {
-	if (s_pll_phy_register == 0 || s_pll_virt_register == 0 || s_pll_size_register == 0) {
-		pr_warn("%s In[%s][%d] didn't get pll register\n", DEV_NAME, __FUNCTION__, __LINE__);
-		return;
-	} else if (offset > s_pll_size_register) {
-		pr_warn("%s In[%s][%d] offset over than register size\n", DEV_NAME, __FUNCTION__, __LINE__);
-		return;
-	}
+    if (s_pll_phy_register == 0 || s_pll_virt_register == 0 || s_pll_size_register == 0)
+    {
+        printk(KERN_WARNING "In[%s][%d] didn't get pll register\n", __FUNCTION__, __LINE__);
+        return;
+    }
+    else if (offset > s_pll_size_register)
+    {
+        printk(KERN_WARNING "In[%s][%d] offset over than register size\n", __FUNCTION__, __LINE__);
+        return;
+    }
 
-	if (bOverwrite == 1) {
-		__raw_writel(value, (volatile u8 *)(s_pll_virt_register+offset));
-	} else {
-		if (bEnable)
-			__raw_writel(__raw_readl((volatile u8 *)(s_pll_virt_register+offset)) | value, (volatile u8 *)(s_pll_virt_register+offset));
-		else
-			__raw_writel(__raw_readl((volatile u8 *)(s_pll_virt_register+offset)) & value, (volatile u8 *)(s_pll_virt_register+offset));
-	}
+    if (bOverwrite == 1)
+    {
+        __raw_writel(value, (volatile u8 *)(s_pll_virt_register+offset));
+    }
+    else
+    {
+        if (bEnable)
+        {
+            __raw_writel(__raw_readl((volatile u8 *)(s_pll_virt_register+offset)) | value, (volatile u8 *)(s_pll_virt_register+offset));
+        }
+        else
+        {
+            __raw_writel(__raw_readl((volatile u8 *)(s_pll_virt_register+offset)) & value, (volatile u8 *)(s_pll_virt_register+offset));
+        }
+    }
 }
 
 static void ReadCoreConfig(hantrodec_t *dev)
 {
-	int i, c;
-	u32 reg, tmp;
+    int c;
+    u32 reg, tmp;
 
-	memset(cfg, 0, sizeof(cfg));
+    memset(cfg, 0, sizeof(cfg));
 
-	for(c = 0; c < dev->cores; c++) {
-		/* Decoder configuration */
-		reg = ioread32(dev->hwregs[c] + HANTRODEC_SYNTH_CFG_2 * 4);
+    for(c = 0; c < dev->cores; c++)
+    {
+        /* Decoder configuration */
+        reg = ioread32(dev->hwregs[c] + HANTRODEC_SYNTH_CFG_2 * 4);
 
-		tmp = (reg >> DWL_HEVC_E) & 0x3U;
-		if(tmp)
-			pr_info("%s core[%d] has HEVC\n", DEV_NAME, c);
-		cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_HEVC_DEC : 0;
+        tmp = (reg >> DWL_HEVC_E) & 0x3U;
+        if(tmp) printk(KERN_INFO "VE3: core[%d] has HEVC\n", c);
+        cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_HEVC_DEC : 0;
 
-		tmp = (reg >> DWL_VP9_E) & 0x03U;
-		if(tmp)
-			pr_info("%s core[%d] has VP9\n", DEV_NAME, c);
-		cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_VP9_DEC : 0;
+        tmp = (reg >> DWL_VP9_E) & 0x03U;
+        if(tmp) printk(KERN_INFO "VE3: core[%d] has VP9\n", c);
+        cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_VP9_DEC : 0;
 
-		/* Post-processor configuration */
-		reg = ioread32(dev->hwregs[c] + HANTRODECPP_SYNTH_CFG * 4);
+        /* Post-processor configuration */
+        reg = ioread32(dev->hwregs[c] + HANTRODECPP_SYNTH_CFG * 4);
 
-		tmp = (reg >> DWL_PP_E) & 0x01U;
-		if(tmp)
-			pr_info("%s core[%d] has PP\n", DEV_NAME, c);
-		cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_PP : 0;
-
-		for(i = 0; i <= HANTRO_DEC_LAST_REG; i++)
-			asic_dec_regs[c][i] = ioread32(dev->hwregs[c] + i*4);
-	}
+        tmp = (reg >> DWL_PP_E) & 0x01U;
+        if(tmp) printk(KERN_INFO "VE3: core[%d] has PP\n", c);
+        cfg[c] |= tmp ? 1 << DWL_CLIENT_TYPE_PP : 0;
+    }
 }
 
 static int CoreHasFormat(const u32 *cfg, int core, u32 format)
 {
-	return (cfg[core] & (1 << format)) ? 1 : 0;
+    return (cfg[core] & (1 << format)) ? 1 : 0;
 }
 
 int GetDecCore(long core, hantrodec_t *dev, struct file* filp)
 {
-	int success = 0;
-	unsigned long flags;
+    int success = 0;
+    unsigned long flags;
 
-	spin_lock_irqsave(&owner_lock, flags);
-	if(dec_owner[core] == NULL ) {
-		dec_owner[core] = filp;
-		success = 1;
-	}
+    spin_lock_irqsave(&owner_lock, flags);
+    if(dec_owner[core] == NULL )
+    {
+        dec_owner[core] = filp;
+        success = 1;
+    }
 
-	spin_unlock_irqrestore(&owner_lock, flags);
+    spin_unlock_irqrestore(&owner_lock, flags);
 
-	return success;
+    return success;
 }
 
 int GetDecCoreAny(long *core, hantrodec_t *dev, struct file* filp,
-				  unsigned long format)
+                  unsigned long format)
 {
-	int success = 0;
-	long c;
+    int success = 0;
+    long c;
 
-	*core = -1;
+    *core = -1;
 
-	for(c = 0; c < dev->cores; c++) {
-		/* a free core that has format */
-		if(CoreHasFormat(cfg, c, format) && GetDecCore(c, dev, filp)) {
-			success = 1;
-			*core = c;
-			break;
-		}
-	}
+    for(c = 0; c < dev->cores; c++)
+    {
+        /* a free core that has format */
+        if(CoreHasFormat(cfg, c, format) && GetDecCore(c, dev, filp))
+        {
+            success = 1;
+            *core = c;
+            break;
+        }
+    }
 
-	return success;
+    return success;
 }
 
 long ReserveDecoder(hantrodec_t *dev, struct file* filp, unsigned long format)
 {
-	long core = -1;
+    long core = -1;
 
-	/* reserve a core */
-	if (down_interruptible(&dec_core_sem))
-		return -ERESTARTSYS;
+    /* reserve a core */
+    if (down_interruptible(&dec_core_sem))
+        return -ERESTARTSYS;
 
-	/* lock a core that has specific format*/
-	if(wait_event_interruptible(hw_queue,
-								GetDecCoreAny(&core, dev, filp, format) != 0 ))
-		return -ERESTARTSYS;
+    /* lock a core that has specific format*/
+    if(wait_event_interruptible(hw_queue,
+                                GetDecCoreAny(&core, dev, filp, format) != 0 ))
+        return -ERESTARTSYS;
 
-	return core;
+    return core;
 }
 
 void ReleaseDecoder(hantrodec_t *dev, long core)
 {
-	u32 status;
-	unsigned long flags;
+    u32 status;
+    unsigned long flags;
 
-	status = ioread32(dev->hwregs[core] + HANTRODEC_IRQ_STAT_DEC_OFF);
+    status = ioread32(dev->hwregs[core] + HANTRODEC_IRQ_STAT_DEC_OFF);
 
-	/* make sure HW is disabled */
-	if(status & HANTRODEC_DEC_E)
-	{
-		pr_info("%s DEC[%li] still enabled -> reset\n", DEV_NAME, core);
+    /* make sure HW is disabled */
+    if(status & HANTRODEC_DEC_E)
+    {
+        printk(KERN_INFO "VE3: DEC[%li] still enabled -> reset\n", core);
 
-		/* abort decoder */
-		status |= HANTRODEC_DEC_ABORT | HANTRODEC_DEC_IRQ_DISABLE;
-		iowrite32(status, dev->hwregs[core] + HANTRODEC_IRQ_STAT_DEC_OFF);
-	}
+        /* abort decoder */
+        status |= HANTRODEC_DEC_ABORT | HANTRODEC_DEC_IRQ_DISABLE;
+        iowrite32(status, dev->hwregs[core] + HANTRODEC_IRQ_STAT_DEC_OFF);
+    }
 
-	spin_lock_irqsave(&owner_lock, flags);
+    spin_lock_irqsave(&owner_lock, flags);
 
-	dec_owner[core] = NULL;
+    dec_owner[core] = NULL;
 
-	spin_unlock_irqrestore(&owner_lock, flags);
+    spin_unlock_irqrestore(&owner_lock, flags);
 
-	up(&dec_core_sem);
+    up(&dec_core_sem);
 
-	wake_up_interruptible_all(&hw_queue);
+    wake_up_interruptible_all(&hw_queue);
 }
 
 long DecFlushRegs(hantrodec_t *dev, struct core_desc *core)
 {
-	long ret = 0, i;
+    long ret = 0, i;
 
-	u32 id = core->id;
+    u32 id = core->id;
 
-	ret = copy_from_user(dec_regs[id], (u32 *)core->regs, HANTRO_DEC_REGS*4);
-	if (ret)
-	{
-		PDEBUG("%s copy_from_user failed, returned %li\n", DEV_NAME, ret);
-		return -EFAULT;
-	}
+    ret = copy_from_user(dec_regs[id], (u32 *)core->regs, HANTRO_DEC_REGS*4);
+    if (ret)
+    {
+        PDEBUG("copy_from_user failed, returned %li\n", ret);
+        return -EFAULT;
+    }
 
-	/* write all regs but the status reg[1] to hardware */
-	for(i = 2; i <= HANTRO_DEC_LAST_REG; i++)
-		iowrite32(dec_regs[id][i], dev->hwregs[id] + i*4);
+    /* write all regs but the status reg[1] to hardware */
+    for(i = 2; i <= HANTRO_DEC_LAST_REG; i++)
+        iowrite32(dec_regs[id][i], dev->hwregs[id] + i*4);
 
-	/* write the status register, which may start the decoder */
-	iowrite32(dec_regs[id][1], dev->hwregs[id] + 4);
+    /* write the status register, which may start the decoder */
+    iowrite32(dec_regs[id][1], dev->hwregs[id] + 4);
 
-	PDEBUG("%s flushed registers on core %d\n", DEV_NAME, id);
+    PDEBUG("flushed registers on core %d\n", id);
 
-	return 0;
+    return 0;
 }
 
 long DecRefreshRegs(hantrodec_t *dev, struct core_desc *core)
 {
-	long ret, i;
-	u32 id = core->id;
+    long ret, i;
+    u32 id = core->id;
 
-	/* user has to know exactly what they are asking for */
-	if(core->size != (HANTRO_DEC_REGS * 4))
-		return -EFAULT;
+    /* user has to know exactly what they are asking for */
+    if(core->size != (HANTRO_DEC_REGS * 4))
+        return -EFAULT;
 
-	/* read all registers from hardware */
-	for(i = 0; i <= HANTRO_DEC_LAST_REG; i++)
-		dec_regs[id][i] = ioread32(dev->hwregs[id] + i*4);
+    /* read all registers from hardware */
+    for(i = 0; i <= HANTRO_DEC_LAST_REG; i++)
+        dec_regs[id][i] = ioread32(dev->hwregs[id] + i*4);
 
-	/* put registers to user space*/
-	ret = copy_to_user((u32 *)core->regs, dec_regs[id], HANTRO_DEC_REGS*4);
-	if (ret)
-	{
-		PDEBUG("%s copy_to_user failed, returned %li\n", DEV_NAME, ret);
-		return -EFAULT;
-	}
+    /* put registers to user space*/
+    ret = copy_to_user((u32 *)core->regs, dec_regs[id], HANTRO_DEC_REGS*4);
+    if (ret)
+    {
+        PDEBUG("copy_to_user failed, returned %li\n", ret);
+        return -EFAULT;
+    }
 
-	return 0;
+    return 0;
 }
 
 static int CheckDecIrq(hantrodec_t *dev, int id)
 {
-	unsigned long flags;
-	int rdy = 0;
+    unsigned long flags;
+    int rdy = 0;
 
-	const u32 irq_mask = (1 << id);
+    const u32 irq_mask = (1 << id);
 
-	spin_lock_irqsave(&owner_lock, flags);
+    spin_lock_irqsave(&owner_lock, flags);
 
-	if(dec_irq & irq_mask)
-	{
-		/* reset the wait condition(s) */
-		dec_irq &= ~irq_mask;
-		rdy = 1;
-	}
+    if(dec_irq & irq_mask)
+    {
+        /* reset the wait condition(s) */
+        dec_irq &= ~irq_mask;
+        rdy = 1;
+    }
 
-	spin_unlock_irqrestore(&owner_lock, flags);
+    spin_unlock_irqrestore(&owner_lock, flags);
 
-	return rdy;
+    return rdy;
 }
 
 long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *core)
 {
-	u32 id = core->id;
+    u32 id = core->id;
 
-	PDEBUG("%s wait_event_interruptible DEC[%d]\n", DEV_NAME, id);
+    PDEBUG("wait_event_interruptible DEC[%d]\n", id);
 
-	if(wait_event_interruptible(dec_wait_queue, CheckDecIrq(dev, id)))
-	{
-		PDEBUG("%s DEC[%d]  wait_event_interruptible interrupted\n", DEV_NAME, id);
-		return -ERESTARTSYS;
-	}
+    if(wait_event_interruptible(dec_wait_queue, CheckDecIrq(dev, id)))
+    {
+        PDEBUG("DEC[%d]  wait_event_interruptible interrupted\n", id);
+        return -ERESTARTSYS;
+    }
 
-	atomic_inc(&irq_tx);
+    atomic_inc(&irq_tx);
 
-	/* refresh registers */
-	return DecRefreshRegs(dev, core);
+    /* refresh registers */
+    return DecRefreshRegs(dev, core);
 }
 
 static int CheckCoreIrq(hantrodec_t *dev, const struct file *filp, int *id)
 {
-	unsigned long flags;
-	int rdy = 0, n = 0;
+    unsigned long flags;
+    int rdy = 0, n = 0;
 
-	do
-	{
-		u32 irq_mask = (1 << n);
+    do
+    {
+        u32 irq_mask = (1 << n);
 
-		spin_lock_irqsave(&owner_lock, flags);
+        spin_lock_irqsave(&owner_lock, flags);
 
-		if(dec_irq & irq_mask)
-		{
-			if (dec_owner[n] == filp)
-			{
-				/* we have an IRQ for our client */
+        if(dec_irq & irq_mask)
+        {
+            if (dec_owner[n] == filp)
+            {
+                /* we have an IRQ for our client */
 
-				/* reset the wait condition(s) */
-				dec_irq &= ~irq_mask;
+                /* reset the wait condition(s) */
+                dec_irq &= ~irq_mask;
 
-				/* signal ready core no. for our client */
-				*id = n;
+                /* signal ready core no. for our client */
+                *id = n;
 
-				rdy = 1;
+                rdy = 1;
 
-				spin_unlock_irqrestore(&owner_lock, flags);
-				break;
-			}
-			else if(dec_owner[n] == NULL)
-			{
-				/* zombie IRQ */
-				pr_info("%s IRQ on core[%d], but no owner!!!\n", DEV_NAME, n);
+                spin_unlock_irqrestore(&owner_lock, flags);
+                break;
+            }
+            else if(dec_owner[n] == NULL)
+            {
+                /* zombie IRQ */
+                printk(KERN_INFO "IRQ on core[%d], but no owner!!!\n", n);
 
-				/* reset the wait condition(s) */
-				dec_irq &= ~irq_mask;
-				if (dec_release == 1) /* RTK, workaround for memory leak when decoder release */
-				{
-					dec_release = 0;
-					*id = n;
-					rdy = 1;
-					spin_unlock_irqrestore(&owner_lock, flags);
-					break;
-				}
-			}
-		}
+                /* reset the wait condition(s) */
+                dec_irq &= ~irq_mask;
+                if (dec_release == 1) /* RTK, workaround for memory leak when decoder release */
+                {
+                    dec_release = 0;
+                    *id = n;
+                    rdy = 1;
+                    spin_unlock_irqrestore(&owner_lock, flags);
+                    break;
+                }
+            }
+        }
 
-		spin_unlock_irqrestore(&owner_lock, flags);
+        spin_unlock_irqrestore(&owner_lock, flags);
 
-		n++; /* next core */
-	}
-	while(n < dev->cores);
+        n++; /* next core */
+    }
+    while(n < dev->cores);
 
-	return rdy;
+    return rdy;
 }
 
 long WaitCoreReady(hantrodec_t *dev, const struct file *filp, int *id)
 {
-	PDEBUG("%s wait_event_interruptible CORE\n", DEV_NAME);
+    PDEBUG("wait_event_interruptible CORE\n");
 
-	if(wait_event_interruptible(dec_wait_queue, CheckCoreIrq(dev, filp, id)))
-	{
-		PDEBUG("%s CORE  wait_event_interruptible interrupted\n", DEV_NAME);
-		return -ERESTARTSYS;
-	}
+    if(wait_event_interruptible(dec_wait_queue, CheckCoreIrq(dev, filp, id)))
+    {
+        PDEBUG("CORE  wait_event_interruptible interrupted\n");
+        return -ERESTARTSYS;
+    }
 
-	atomic_inc(&irq_tx);
+    atomic_inc(&irq_tx);
 
-	return 0;
+    return 0;
 }
 
 /*------------------------------------------------------------------------------
  Function name   : hantrodec_ioctl
- Description	 : communication method to/from the user space
+ Description     : communication method to/from the user space
 
- Return type	 : long
+ Return type     : long
 ------------------------------------------------------------------------------*/
+
 static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
-	unsigned long arg)
+                            unsigned long arg)
 {
-	int err = 0;
-	long tmp;
+    int err = 0;
+    long tmp;
 
 #ifdef HW_PERFORMANCE
-	struct timeval *end_time_arg;
+    struct timeval *end_time_arg;
 #endif
 
-	PDEBUG("%s ioctl cmd 0x%08x\n", DEV_NAME, cmd);
-	/*
-	 * extract the type and number bitfields, and don't decode
-	 * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
-	 */
-	if (_IOC_TYPE(cmd) != HANTRODEC_IOC_MAGIC)
-		return -ENOTTY;
-	if (_IOC_NR(cmd) > HANTRODEC_IOC_MAXNR)
-		return -ENOTTY;
+    PDEBUG("ioctl cmd 0x%08x\n", cmd);
+    /*
+     * extract the type and number bitfields, and don't decode
+     * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
+     */
+    if (_IOC_TYPE(cmd) != HANTRODEC_IOC_MAGIC)
+        return -ENOTTY;
+    if (_IOC_NR(cmd) > HANTRODEC_IOC_MAXNR)
+        return -ENOTTY;
 
-	/*
-	 * the direction is a bitmask, and VERIFY_WRITE catches R/W
-	 * transfers. `Type' is user-oriented, while
-	 * access_ok is kernel-oriented, so the concept of "read" and
-	 * "write" is reversed
-	 */
-	if (_IOC_DIR(cmd) & _IOC_READ)
-		err = !access_ok(VERIFY_WRITE, (void *) arg, _IOC_SIZE(cmd));
-	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		err = !access_ok(VERIFY_READ, (void *) arg, _IOC_SIZE(cmd));
+    /*
+     * the direction is a bitmask, and VERIFY_WRITE catches R/W
+     * transfers. `Type' is user-oriented, while
+     * access_ok is kernel-oriented, so the concept of "read" and
+     * "write" is reversed
+     */
+    if (_IOC_DIR(cmd) & _IOC_READ)
+        err = !access_ok(VERIFY_WRITE, (void *) arg, _IOC_SIZE(cmd));
+    else if (_IOC_DIR(cmd) & _IOC_WRITE)
+        err = !access_ok(VERIFY_READ, (void *) arg, _IOC_SIZE(cmd));
 
-	if (err)
-		return -EFAULT;
+    if (err)
+        return -EFAULT;
 
-	switch (cmd)
-	{
-	case HANTRODEC_IOC_CLI:
-		disable_irq(hantrodec_data.irq);
-		break;
-	case HANTRODEC_IOC_STI:
-		enable_irq(hantrodec_data.irq);
-		break;
-	case HANTRODEC_IOCGHWOFFSET:
-		__put_user(multicorebase[0], (unsigned long *) arg);
-		break;
-	case HANTRODEC_IOCGHWIOSIZE:
-		__put_user(hantrodec_data.iosize, (unsigned int *) arg);
-		break;
-	case HANTRODEC_BONDINGOFFSET:
-		__put_user(s_bonding_phy_register, (unsigned long *) arg);
-		break;
-	case HANTRODEC_BONDINGIOSIZE:
-		__put_user(s_bonding_size_register, (unsigned int *) arg);
-		break;
-	case HANTRODEC_IOC_MC_OFFSETS:
-	{
-		tmp = copy_to_user((u64 *) arg, multicorebase, sizeof(multicorebase));
-		if (err)
-		{
-			PDEBUG("%s copy_to_user failed, returned %li\n", DEV_NAME, tmp);
-			return -EFAULT;
-		}
-		break;
-	}
-	case HANTRODEC_IOC_MC_CORES:
-		__put_user(hantrodec_data.cores, (unsigned int *) arg);
-		break;
-	case HANTRODEC_IOCS_DEC_PUSH_REG:
-	{
-		struct core_desc core;
+    switch (cmd)
+    {
+    case HANTRODEC_IOC_CLI:
+        disable_irq(hantrodec_data.irq);
+        break;
+    case HANTRODEC_IOC_STI:
+        enable_irq(hantrodec_data.irq);
+        break;
+    case HANTRODEC_IOCGHWOFFSET:
+        __put_user(multicorebase[0], (unsigned long *) arg);
+        break;
+    case HANTRODEC_IOCGHWIOSIZE:
+        __put_user(hantrodec_data.iosize, (unsigned int *) arg);
+        break;
+    case HANTRODEC_IOC_MC_OFFSETS:
+    {
+        tmp = copy_to_user((u64 *) arg, multicorebase, sizeof(multicorebase));
+        if (err)
+        {
+            PDEBUG("copy_to_user failed, returned %li\n", tmp);
+            return -EFAULT;
+        }
+        break;
+    }
+    case HANTRODEC_IOC_MC_CORES:
+        __put_user(hantrodec_data.cores, (unsigned int *) arg);
+        break;
+    case HANTRODEC_IOCS_DEC_PUSH_REG:
+    {
+        struct core_desc core;
 
-		/* get registers from user space*/
-		tmp = copy_from_user(&core, (void*)arg, sizeof(struct core_desc));
-		if (tmp)
-		{
-			PDEBUG("%s copy_from_user failed, returned %li\n", DEV_NAME tmp);
-			return -EFAULT;
-		}
+        /* get registers from user space*/
+        tmp = copy_from_user(&core, (void*)arg, sizeof(struct core_desc));
+        if (tmp)
+        {
+            PDEBUG("copy_from_user failed, returned %li\n", tmp);
+            return -EFAULT;
+        }
 
-		DecFlushRegs(&hantrodec_data, &core);
-		break;
-	}
-	case HANTRODEC_IOCS_DEC_PULL_REG:
-	{
-		struct core_desc core;
+        DecFlushRegs(&hantrodec_data, &core);
+        break;
+    }
+    case HANTRODEC_IOCS_DEC_PULL_REG:
+    {
+        struct core_desc core;
 
-		/* get registers from user space*/
-		tmp = copy_from_user(&core, (void*)arg, sizeof(struct core_desc));
-		if (tmp)
-		{
-			PDEBUG("%s copy_from_user failed, returned %li\n", DEV_NAME, tmp);
-			return -EFAULT;
-		}
+        /* get registers from user space*/
+        tmp = copy_from_user(&core, (void*)arg, sizeof(struct core_desc));
+        if (tmp)
+        {
+            PDEBUG("copy_from_user failed, returned %li\n", tmp);
+            return -EFAULT;
+        }
 
-		return DecRefreshRegs(&hantrodec_data, &core);
-	}
-	case HANTRODEC_IOCH_DEC_RESERVE:
-	{
-		PDEBUG("%s Reserve DEC core, format = %li\n", DEV_NAME, arg);
-		return ReserveDecoder(&hantrodec_data, filp, arg);
-	}
-	case HANTRODEC_IOCT_DEC_RELEASE:
-	{
-		if(arg >= hantrodec_data.cores || dec_owner[arg] != filp)
-		{
-			PDEBUG("%s bogus DEC release, core = %li\n", DEV_NAME, arg);
-			return -EFAULT;
-		}
+        return DecRefreshRegs(&hantrodec_data, &core);
+    }
+    case HANTRODEC_IOCH_DEC_RESERVE:
+    {
+        PDEBUG("Reserve DEC core, format = %li\n", arg);
+        return ReserveDecoder(&hantrodec_data, filp, arg);
+    }
+    case HANTRODEC_IOCT_DEC_RELEASE:
+    {
+        if(arg >= hantrodec_data.cores || dec_owner[arg] != filp)
+        {
+            PDEBUG("bogus DEC release, core = %li\n", arg);
+            return -EFAULT;
+        }
 
-		PDEBUG("%s Release DEC, core = %li\n", DEV_NAME, arg);
+        PDEBUG("Release DEC, core = %li\n", arg);
 
-		ReleaseDecoder(&hantrodec_data, arg);
+        ReleaseDecoder(&hantrodec_data, arg);
 
-		break;
-	}
-	case HANTRODEC_IOCX_DEC_WAIT:
-	{
-		struct core_desc core;
+        break;
+    }
+    case HANTRODEC_IOCX_DEC_WAIT:
+    {
+        struct core_desc core;
 
-		/* get registers from user space */
-		tmp = copy_from_user(&core, (void*)arg, sizeof(struct core_desc));
-		if (tmp)
-		{
-			PDEBUG("%s copy_from_user failed, returned %li\n", DEV_NAME, tmp);
-			return -EFAULT;
-		}
+        /* get registers from user space */
+        tmp = copy_from_user(&core, (void*)arg, sizeof(struct core_desc));
+        if (tmp)
+        {
+            PDEBUG("copy_from_user failed, returned %li\n", tmp);
+            return -EFAULT;
+        }
 
-		return WaitDecReadyAndRefreshRegs(&hantrodec_data, &core);
-	}
-	case HANTRODEC_IOCG_CORE_WAIT:
-	{
-		int id;
-		tmp = WaitCoreReady(&hantrodec_data, filp, &id);
-		__put_user(id, (int *) arg);
-		return tmp;
-	}
-	case HANTRODEC_IOX_ASIC_ID:
-	{
-		u32 id;
-		__get_user(id, (u32*)arg);
+        return WaitDecReadyAndRefreshRegs(&hantrodec_data, &core);
+    }
+    case HANTRODEC_IOCG_CORE_WAIT:
+    {
+        int id;
+        tmp = WaitCoreReady(&hantrodec_data, filp, &id);
+        __put_user(id, (int *) arg);
+        return tmp;
+    }
+    case HANTRODEC_IOX_ASIC_ID:
+    {
+        u32 id;
+        __get_user(id, (u32*)arg);
 
-		if(id >= hantrodec_data.cores)
-		{
-			return -EFAULT;
-		}
-		id = ioread32(hantrodec_data.hwregs[id]);
-		__put_user(id, (u32 *) arg);
-	}
-	break;
-	case HANTRODEC_DEBUG_STATUS:
-	{
-		pr_info("%s dec_irq = 0x%08x \n", DEV_NAME, dec_irq);
-		pr_info("%s IRQs received/sent2user = %d / %d \n",
-			DEV_NAME, atomic_read(&irq_rx), atomic_read(&irq_tx));
+        if(id >= hantrodec_data.cores)
+        {
+            return -EFAULT;
+        }
+        id = ioread32(hantrodec_data.hwregs[id]);
+        __put_user(id, (u32 *) arg);
+    }
+    break;
+    case HANTRODEC_DEBUG_STATUS:
+    {
+        printk(KERN_INFO "VE3: dec_irq     = 0x%08x \n", dec_irq);
 
-		for (tmp = 0; tmp < hantrodec_data.cores; tmp++)
-		{
-			pr_info("%s dec_core[%li] %s\n",
-				DEV_NAME, tmp, dec_owner[tmp] == NULL ? "FREE" : "RESERVED");
-		}
-	}
-	break;
-	case HANTRODEC_SET_CLOCK_ENABLE:
-	{
-		u32 clkgate;
+        printk(KERN_INFO "VE3: IRQs received/sent2user = %d / %d \n",
+               atomic_read(&irq_rx), atomic_read(&irq_tx));
 
-		if (get_user(clkgate, (u32 __user *) arg))
-			return -EFAULT;
+        for (tmp = 0; tmp < hantrodec_data.cores; tmp++)
+        {
+            printk(KERN_INFO "VE3: dec_core[%li] %s\n",
+                   tmp, dec_owner[tmp] == NULL ? "FREE" : "RESERVED");
+        }
+    }
+    break;
+    case HANTRODEC_SET_CLOCK_ENABLE:
+    {
+        u32 clkgate;
 
-		PDEBUG("%s HANTRODEC_SET_CLOCK_ENABLE:%d\n", DEV_NAME, clkgate);
+        if (get_user(clkgate, (u32 __user *) arg))
+            return -EFAULT;
 
-		if (clkgate)
-		{
+        PDEBUG("VE3: HANTRODEC_SET_CLOCK_ENABLE:%d\n", clkgate);
+
+        if (clkgate)
+        {
 #ifdef CONFIG_POWER_CONTROL
-			pr_info("%s before pctrl_on for laterncy watching!!\n", DEV_NAME);
-			ve3_pctrl_on(s_pctrl_ve3);
-			pr_info("%s after pctrl_on for laterncy watching!!\n", DEV_NAME);
+            printk(KERN_INFO "VE3: before pctrl_on for laterncy watching!!\n");
+            ve3_pctrl_on(s_pctrl_ve3);
+            printk(KERN_INFO "VE3: after pctrl_on for laterncy watching!!\n");
 #endif
-			ve3_clk_enable(s_ve3_clk);
-			ve3_wrapper_setup(base_address);
-			msleep(1);
-			dec_release = 0;
-		}
-		else
-		{
-			ve3_clk_disable(s_ve3_clk);
+            ve3_clk_enable(s_ve3_clk);
+            ve3_wrapper_setup(base_address);
+            msleep(1);
+            dec_release = 0;
+        }
+        else
+        {
+            ve3_clk_disable(s_ve3_clk);
 #ifdef CONFIG_POWER_CONTROL
-			ve3_pctrl_off(s_pctrl_ve3);
+            ve3_pctrl_off(s_pctrl_ve3);
 #endif
-		}
-	}
-	break;
-	case HANTRODEC_GET_ASIC_REVISION:
-	{
-		__put_user(get_rtd129x_cpu_revision()|get_rtd129x_cpu_id(), (unsigned int *) arg);
-	}
-	break;
-	case HANTRODEC_RESET_CLK_GATING:
-	{
-		PDEBUG("%s HANTRODEC_RESET_CLK_GATING\n", DEV_NAME);
-		ve3_clk_disable(s_ve3_clk);
-		reset_control_reset(rstc_ve3);
-		ve3_clk_enable(s_ve3_clk);
+        }
+    }
+    break;
+    case HANTRODEC_GET_ASIC_REVISION:
+    {
+        __put_user(get_rtd129x_cpu_revision(), (unsigned int *) arg);
+    }
+    break;
+    case HANTRODEC_RESET_CLK_GATING:
+    {
+        PDEBUG("VE3: HANTRODEC_RESET_CLK_GATING\n");
+        ve3_clk_disable(s_ve3_clk);
+        reset_control_reset(rstc_ve3);
+        ve3_clk_enable(s_ve3_clk);
 
-		ve3_wrapper_setup(base_address);
-		//msleep(1);
-	}
-	break;
-	case HANTRODEC_NOTIFY_RELEASE:
-	{
-		dec_release = 1;
-		dec_irq |= (1 << 0);
-		wake_up_interruptible_all(&dec_wait_queue);
-	}
-	break;
-	case HANTRODEC_GET_ASIC_REG:
-	{
-		struct core_desc core;
+        ve3_wrapper_setup(base_address);
+        //msleep(1);
+    }
+    break;
+    case HANTRODEC_NOTIFY_RELEASE:
+    {
+        dec_release = 1;
+        dec_irq |= (1 << 0);
+        wake_up_interruptible_all(&dec_wait_queue);
+    }
+    break;
+    default:
+        return -ENOTTY;
+    }
 
-		/* get registers from user space*/
-		tmp = copy_from_user(&core, (void*)arg, sizeof(struct core_desc));
-		if (tmp)
-		{
-			PDEBUG("%s copy_from_user failed, returned %li\n", DEV_NAME, tmp);
-			return -EFAULT;
-		}
-
-		tmp = copy_to_user((u32 *)core.regs, asic_dec_regs[core.id], HANTRO_DEC_REGS*4);
-		if (tmp)
-		{
-			PDEBUG("%s copy_to_user failed, returned %li\n", DEV_NAME, tmp);
-			return -EFAULT;
-		}
-	}
-	break;
-	default:
-		return -ENOTTY;
-	}
-
-	return 0;
+    return 0;
 }
 
 /*------------------------------------------------------------------------------
  Function name   : hantrodec_open
- Description	 : open method
+ Description     : open method
 
- Return type	 : int
+ Return type     : int
 ------------------------------------------------------------------------------*/
 
 static int hantrodec_open(struct inode *inode, struct file *filp)
 {
-	PDEBUG("%s dev opened\n", DEV_NAME);
-	return 0;
+    PDEBUG("dev opened\n");
+    return 0;
 }
 
 /*------------------------------------------------------------------------------
  Function name   : hantrodec_release
- Description	 : Release driver
+ Description     : Release driver
 
- Return type	 : int
+ Return type     : int
 ------------------------------------------------------------------------------*/
 
 static int hantrodec_release(struct inode *inode, struct file *filp)
 {
-	int n;
-	hantrodec_t *dev = &hantrodec_data;
+    int n;
+    hantrodec_t *dev = &hantrodec_data;
 
-	PDEBUG("%s closing ...\n", DEV_NAME);
+    PDEBUG("closing ...\n");
 
-	for(n = 0; n < dev->cores; n++)
-	{
-		if(dec_owner[n] == filp)
-		{
-			PDEBUG("%s releasing dec core %i lock\n", DEV_NAME, n);
-			ReleaseDecoder(dev, n);
-		}
-	}
+    for(n = 0; n < dev->cores; n++)
+    {
+        if(dec_owner[n] == filp)
+        {
+            PDEBUG("releasing dec core %i lock\n", n);
+            ReleaseDecoder(dev, n);
+        }
+    }
 
-	PDEBUG("%s closed\n", DEV_NAME);
-	return 0;
+    PDEBUG("closed\n");
+    return 0;
 }
 
 static int ve3_mmap(struct file *fp, struct vm_area_struct *vm)
 {
-	if ((vm->vm_pgoff == (multicorebase[0]>>PAGE_SHIFT)) || (vm->vm_pgoff == (s_bonding_phy_register>>PAGE_SHIFT)))
-	{
-		unsigned long pfn;
+    if (vm->vm_pgoff == (multicorebase[0]>>PAGE_SHIFT))
+    {
+        unsigned long pfn;
 
-		vm->vm_flags |= VM_IO | VM_RESERVED;
-		vm->vm_page_prot = pgprot_noncached(vm->vm_page_prot);
-		pfn = vm->vm_pgoff;
+        vm->vm_flags |= VM_IO | VM_RESERVED;
+        vm->vm_page_prot = pgprot_noncached(vm->vm_page_prot);
+        pfn = multicorebase[0] >> PAGE_SHIFT;
 
-		return remap_pfn_range(vm, vm->vm_start, pfn, vm->vm_end-vm->vm_start, vm->vm_page_prot) ? -EAGAIN : 0;
-	}
-	else
-	{
-		vm->vm_flags |= VM_IO | VM_RESERVED;
-		vm->vm_page_prot = pgprot_writecombine(vm->vm_page_prot);
+        return remap_pfn_range(vm, vm->vm_start, pfn, vm->vm_end-vm->vm_start, vm->vm_page_prot) ? -EAGAIN : 0;
+    }
+    else
+    {
+        vm->vm_flags |= VM_IO | VM_RESERVED;
+        vm->vm_page_prot = pgprot_writecombine(vm->vm_page_prot);
 
-		return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff, vm->vm_end-vm->vm_start, vm->vm_page_prot) ? -EAGAIN : 0;
-	}
+        return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff, vm->vm_end-vm->vm_start, vm->vm_page_prot) ? -EAGAIN : 0;
+    }
 }
 
 /* VFS methods */
 static struct file_operations hantrodec_fops =
 {
-	.owner = THIS_MODULE,
-	.open = hantrodec_open,
-	.release = hantrodec_release,
-	.unlocked_ioctl = hantrodec_ioctl,
-	.compat_ioctl = compat_hantrodec_ioctl,
-	.fasync = NULL,
-	.mmap = ve3_mmap
+    .owner = THIS_MODULE,
+    .open = hantrodec_open,
+    .release = hantrodec_release,
+    .unlocked_ioctl = hantrodec_ioctl,
+    .compat_ioctl = compat_hantrodec_ioctl,
+    .fasync = NULL,
+    .mmap = ve3_mmap
 };
 
 /*------------------------------------------------------------------------------
  Function name   : hantrodec_init
- Description	 : Initialize the driver
+ Description     : Initialize the driver
 
- Return type	 : int
+ Return type     : int
 ------------------------------------------------------------------------------*/
 
 int __init hantrodec_init(void)
 {
-	int result = 0;
+    int result = 0;
 
-	PDEBUG("%s module init\n", DEV_NAME);
+    PDEBUG("module init\n");
 
 #if 0 //Fuchun, move to probe function
-	int i = 0;
-	pr_info("%s dec/pp kernel module\n", DEV_NAME);
+    int i = 0;
+    printk(KERN_INFO "VE3: dec/pp kernel module. \n");
 
-	multicorebase[0] = base_port;
-	elements = 1;
-	pr_info("%s Init single core at 0x%08x IRQ=%i\n",
-		DEV_NAME, multicorebase[0], ve3_irq);
+    multicorebase[0] = base_port;
+    elements = 1;
+    printk(KERN_INFO "VE3: Init single core at 0x%08x IRQ=%i\n",
+           multicorebase[0], ve3_irq);
 
-	hantrodec_data.iosize = DEC_IO_SIZE;
-	hantrodec_data.irq = ve3_irq;
+    hantrodec_data.iosize = DEC_IO_SIZE;
+    hantrodec_data.irq = ve3_irq;
 
-	for(i=0; i< HXDEC_MAX_CORES; i++)
-	{
-		hantrodec_data.hwregs[i] = 0;
-		/* If user gave less core bases that we have by default,
-		 * invalidate default bases
-		 */
-		if(elements && i>=elements)
-		{
-			multicorebase[i] = -1;
-		}
-	}
+    for(i=0; i< HXDEC_MAX_CORES; i++)
+    {
+        hantrodec_data.hwregs[i] = 0;
+        /* If user gave less core bases that we have by default,
+         * invalidate default bases
+         */
+        if(elements && i>=elements)
+        {
+            multicorebase[i] = -1;
+        }
+    }
 
-	hantrodec_data.async_queue_dec = NULL;
+    hantrodec_data.async_queue_dec = NULL;
 
-	result = register_chrdev(hantrodec_major, "hantrodec", &hantrodec_fops);
-	if(result < 0)
-	{
-		pr_info("%s unable to get major %d\n", DEV_NAME, hantrodec_major);
-		goto err;
-	}
-	else if(result != 0)	/* this is for dynamic major */
-	{
-		hantrodec_major = result;
-	}
+    result = register_chrdev(hantrodec_major, "hantrodec", &hantrodec_fops);
+    if(result < 0)
+    {
+        printk(KERN_INFO "VE3: unable to get major %d\n", hantrodec_major);
+        goto err;
+    }
+    else if(result != 0)    /* this is for dynamic major */
+    {
+        hantrodec_major = result;
+    }
 
-	result = ReserveIO();
-	if(result < 0)
-	{
-		goto err;
-	}
+    result = ReserveIO();
+    if(result < 0)
+    {
+        goto err;
+    }
 
-	memset(dec_owner, 0, sizeof(dec_owner));
+    memset(dec_owner, 0, sizeof(dec_owner));
 
-	sema_init(&dec_core_sem, hantrodec_data.cores);
+    sema_init(&dec_core_sem, hantrodec_data.cores);
 
-	/* read configuration fo all cores */
-	ReadCoreConfig(&hantrodec_data);
+    /* read configuration fo all cores */
+    ReadCoreConfig(&hantrodec_data);
 
-	/* reset hardware */
-	ResetAsic(&hantrodec_data);
+    /* reset hardware */
+    ResetAsic(&hantrodec_data);
 
-	/* get the IRQ line */
-	if(ve3_irq > 0) {
+    /* get the IRQ line */
+    if(ve3_irq > 0)
+    {
+        result = request_irq(ve3_irq, hantrodec_isr,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18))
-		result = request_irq(ve3_irq, hantrodec_isr, SA_INTERRUPT | SA_SHIRQ, "VE3_CODEC_IRQ", (void *) &hantrodec_data);
+                             SA_INTERRUPT | SA_SHIRQ,
 #else
-		result = request_irq(ve3_irq, hantrodec_isr, IRQF_SHARED, "VE3_CODEC_IRQ", (void *) &hantrodec_data);
+                             IRQF_SHARED,
 #endif
-		if(result != 0) {
-			if(result == -EINVAL)
-				pr_err("%s Bad irq number or handler\n", DEV_NAME);
-			else if(result == -EBUSY)
-				pr_err("%s IRQ <%d> busy, change your config\n", DEV_NAME, hantrodec_data.irq);
+                             "VE3_CODEC_IRQ", (void *) &hantrodec_data);
+        if(result != 0)
+        {
+            if(result == -EINVAL)
+            {
+                printk(KERN_ERR "VE3: Bad irq number or handler\n");
+            }
+            else if(result == -EBUSY)
+            {
+                printk(KERN_ERR "VE3: IRQ <%d> busy, change your config\n",
+                       hantrodec_data.irq);
+            }
 
-			ReleaseIO();
-			goto err;
-		}
-	}else{
-		pr_info("%s IRQ not in use!\n", DEV_NAME);
-	}
+            ReleaseIO();
+            goto err;
+        }
+    }
+    else
+    {
+        printk(KERN_INFO "VE3: IRQ not in use!\n");
+    }
 
-	return 0;
+    //printk(KERN_INFO "VE3: module inserted. Major = %d\n", hantrodec_major);
+
+    return 0;
 
 err:
-	pr_info("%s module not inserted\n", DEV_NAME);
-	unregister_chrdev(hantrodec_major, "hantrodec");
+    printk(KERN_INFO "VE3: module not inserted\n");
+    unregister_chrdev(hantrodec_major, "hantrodec");
 
 #endif
-	return result;
+    return result;
 }
 
 /*------------------------------------------------------------------------------
  Function name   : hantrodec_cleanup
- Description	 : clean up
+ Description     : clean up
 
- Return type	 : int
+ Return type     : int
 ------------------------------------------------------------------------------*/
 
 void __exit hantrodec_cleanup(void)
 {
 #if 0 //Fuchun, move to remove function
-	hantrodec_t *dev = &hantrodec_data;
+    hantrodec_t *dev = &hantrodec_data;
 
-	/* reset hardware */
-	ResetAsic(dev);
+    /* reset hardware */
+    ResetAsic(dev);
 
-	/* free the IRQ */
-	if(dev->irq != -1)
-		free_irq(dev->irq, (void *) dev);
+    /* free the IRQ */
+    if(dev->irq != -1)
+    {
+        free_irq(dev->irq, (void *) dev);
+    }
 
-	ReleaseIO();
+    ReleaseIO();
 
-	misc_deregister(&s_ve3_dev);
+    misc_deregister(&s_ve3_dev);
 #endif
-	pr_info("%s module exit\n", DEV_NAME);
-	return;
+    printk(KERN_INFO "VE3: module exit\n");
+    return;
 }
 
 static int ve3_probe(struct platform_device *pdev)
 {
-	int err = 0, i;
-	struct resource res;
-	void __iomem *iobase;
-	int irq;
-	struct device_node *node = pdev->dev.of_node;
+    int err = 0, i;
+    struct resource res;
+    printk(KERN_INFO "VE3: ve3_probe\n");
 
-	pr_info("%s ve3_probe\n", DEV_NAME);
+    void __iomem *iobase;
+    int irq;
+    struct device_node *node = pdev->dev.of_node;
 
-	of_address_to_resource(node, 0, &res);
-	iobase = of_iomap(node, 0);
+    of_address_to_resource(node, 0, &res);
+    iobase = of_iomap(node, 0);
 
-	base_port = res.start;
-	base_address = (volatile u8 *)iobase;
-	hantrodec_data.iosize = res.end - res.start + 1;
+    base_port = res.start;
+    base_address = (volatile u8 *)iobase;
+    hantrodec_data.iosize = res.end - res.start + 1;
 
-	pr_info("%s base address get from DTB physical base addr=0x%lx, virtual base=0x%lx, size=0x%x(actually=0x%x)\n",
-		DEV_NAME, base_port, (unsigned long)base_address, hantrodec_data.iosize, DEC_IO_SIZE);
+    printk(KERN_INFO "VE3 : base address get from DTB physical base addr=0x%lx, virtual base=0x%lx, size=0x%x(actually=0x%x)\n", base_port, (unsigned long)base_address, hantrodec_data.iosize, DEC_IO_SIZE);
 
-	of_address_to_resource(node, 1, &res);
-	iobase = of_iomap(node, 1);
+    of_address_to_resource(node, 1, &res);
+    iobase = of_iomap(node, 1);
 
-	s_pll_phy_register = res.start;
-	s_pll_virt_register = (unsigned long)iobase;
-	s_pll_size_register = res.end - res.start + 1;
+    s_pll_phy_register = res.start;
+    s_pll_virt_register = (unsigned long)iobase;
+    s_pll_size_register = res.end - res.start + 1;
 
-	of_address_to_resource(node, 2, &res);
-	s_bonding_phy_register = res.start;
-	s_bonding_size_register = res.end - res.start + 1;
+    s_ve3_dev.minor = MISC_DYNAMIC_MINOR;
+    s_ve3_dev.name = HANTRO_DEV_NAME;
+    s_ve3_dev.fops = &hantrodec_fops;
+    s_ve3_dev.parent = NULL;
+    if (misc_register(&s_ve3_dev)) {
+        printk("vpu: failed to register misc device.");
+        goto ERROR_PROVE_DEVICE;
+    }
 
-	s_ve3_dev.minor = MISC_VE3_MINOR;
-	s_ve3_dev.name = HANTRO_DEV_NAME;
-	s_ve3_dev.fops = &hantrodec_fops;
-	s_ve3_dev.parent = NULL;
-	if (misc_register(&s_ve3_dev)) {
-		pr_info("%s failed to register misc device.", DEV_NAME);
-		goto ERROR_PROVE_DEVICE;
-	}
 
-	irq = irq_of_parse_and_map(node, 0);
-	if (irq <= 0)
-		panic("Can't parse IRQ");
+    irq = irq_of_parse_and_map(node, 0);
+    if (irq <= 0)
+        panic("Can't parse IRQ");
 
-	ve3_irq = irq;
+    ve3_irq = irq;
 
-	if (pdev)
-		s_ve3_clk = ve3_clk_get(&pdev->dev);
-	else
-		s_ve3_clk = ve3_clk_get(NULL);
+    if (pdev)
+        s_ve3_clk = ve3_clk_get(&pdev->dev);
+    else
+        s_ve3_clk = ve3_clk_get(NULL);
 
-	if (!s_ve3_clk)
-		pr_err("%s fail to get clock controller, but, do not treat as error, \n", DEV_NAME);
-	else
-		pr_info("%s get clock controller s_ve3_clk=0x%p\n", DEV_NAME, s_ve3_clk);
+    if (!s_ve3_clk)
+    {
+        printk(KERN_ERR "VE3: fail to get clock controller, but, do not treat as error, \n");
+    }
+    else
+    {
+        printk(KERN_INFO "VE3: get clock controller s_ve3_clk=0x%p\n", s_ve3_clk);
+    }
 
 #ifdef CONFIG_POWER_CONTROL
-	s_pctrl_ve3 = ve3_pctrl_get();
-	ve3_pctrl_on(s_pctrl_ve3);
+    s_pctrl_ve3 = ve3_pctrl_get();
+    ve3_pctrl_on(s_pctrl_ve3);
 #endif
 
-	rstc_ve3 = reset_control_get(&pdev->dev, NULL);
+    rstc_ve3 = rstc_get("rstn_ve3");
 
-	/* RTK clock setting */
-	ve3_pll_setting(0x114, PLL_CLK_594, 1, 0); // VE1 PLL
-	ve3_pll_setting(0x118, (0x7), 1, 0); // VE1 PLL disable
-	__delay(100);
-	ve3_pll_setting(0x118, (0x3), 1, 0); // VE1 PLL enable
-	reset_control_deassert(rstc_ve3); // RESET disable
-	ve3_clk_enable(s_ve3_clk);
+    /* RTK clock setting */
+    ve3_pll_setting(0x114, PLL_CLK_594, 1, 0); // VE1 PLL
+    ve3_pll_setting(0x118, (0x7), 1, 0); // VE1 PLL disable
+    __delay(100);
+    ve3_pll_setting(0x118, (0x3), 1, 0); // VE1 PLL enable
+    reset_control_deassert(rstc_ve3); // RESET disable
+    ve3_clk_enable(s_ve3_clk);
 
-	ve3_wrapper_setup(base_address);
-	msleep(1);
-	pr_info("%s Get cti: 0x%x\n", DEV_NAME, __raw_readl(base_address+0x3F00));
+    ve3_wrapper_setup(base_address);
+    msleep(1);
+    printk(KERN_INFO "Get cti: 0x%x\n", __raw_readl(base_address+0x3F00));
 
-	/* hantrodec_init start */
-	pr_info("%s dec kernel module\n", DEV_NAME);
+//== hantrodec_init start ==
+    printk(KERN_INFO "VE3: dec kernel module. \n");
 
-	multicorebase[0] = base_port;
-	elements = 1;
-	pr_info("%s Init single core at 0x%16llx IRQ=%i\n",
-		DEV_NAME, multicorebase[0], ve3_irq);
+    multicorebase[0] = base_port;
+    elements = 1;
+    printk(KERN_INFO "VE3: Init single core at 0x%16llx IRQ=%i\n",
+           multicorebase[0], ve3_irq);
 
-	hantrodec_data.iosize = DEC_IO_SIZE;
-	hantrodec_data.irq = ve3_irq;
+    hantrodec_data.iosize = DEC_IO_SIZE;
+    hantrodec_data.irq = ve3_irq;
 
-	for (i = 0 ; i < HXDEC_MAX_CORES ; i++) {
-		hantrodec_data.hwregs[i] = 0;
-		/* If user gave less core bases that we have by default,
-		 * invalidate default bases
-		 */
-		if(elements && i>=elements)
-			multicorebase[i] = -1;
-	}
+    for(i=0; i< HXDEC_MAX_CORES; i++)
+    {
+        hantrodec_data.hwregs[i] = 0;
+        /* If user gave less core bases that we have by default,
+         * invalidate default bases
+         */
+        if(elements && i>=elements)
+        {
+            multicorebase[i] = -1;
+        }
+    }
 
-	hantrodec_data.async_queue_dec = NULL;
+    hantrodec_data.async_queue_dec = NULL;
 
-	err = ReserveIO();
-	if(err < 0)
-		goto ERROR_PROVE_DEVICE;
+    err = ReserveIO();
+    if(err < 0)
+    {
+        goto ERROR_PROVE_DEVICE;
+    }
 
-	memset(dec_owner, 0, sizeof(dec_owner));
+    memset(dec_owner, 0, sizeof(dec_owner));
 
-	sema_init(&dec_core_sem, hantrodec_data.cores);
+    sema_init(&dec_core_sem, hantrodec_data.cores);
 
-	/* read configuration fo all cores */
-	ReadCoreConfig(&hantrodec_data);
+    /* read configuration fo all cores */
+    ReadCoreConfig(&hantrodec_data);
 
-	/* reset hardware */
-	ResetAsic(&hantrodec_data);
+    /* reset hardware */
+    ResetAsic(&hantrodec_data);
 
-	/* get the IRQ line */
-	if(ve3_irq > 0) {
+    /* get the IRQ line */
+    if(ve3_irq > 0)
+    {
+        err = request_irq(ve3_irq, hantrodec_isr,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18))
-		err = request_irq(ve3_irq, hantrodec_isr, SA_INTERRUPT | SA_SHIRQ, "VE3_CODEC_IRQ", (void *) &hantrodec_data);
+                          SA_INTERRUPT | SA_SHIRQ,
 #else
-		err = request_irq(ve3_irq, hantrodec_isr, IRQF_SHARED, "VE3_CODEC_IRQ", (void *) &hantrodec_data);
+                          IRQF_SHARED,
 #endif
+                          "VE3_CODEC_IRQ", (void *) &hantrodec_data);
+        if(err != 0)
+        {
+            if(err == -EINVAL)
+            {
+                printk(KERN_ERR "VE3: Bad irq number or handler\n");
+            }
+            else if(err == -EBUSY)
+            {
+                printk(KERN_ERR "VE3: IRQ <%d> busy, change your config\n",
+                       hantrodec_data.irq);
+            }
 
-		if(err != 0) {
-			if(err == -EINVAL)
-				pr_err("%s Bad irq number or handler\n", DEV_NAME);
-			else if(err == -EBUSY)
-				pr_err("%s IRQ <%d> busy, change your config\n",
-					DEV_NAME, hantrodec_data.irq);
-			ReleaseIO();
-			goto ERROR_PROVE_DEVICE;
-		}
-	} else
-		pr_info("%s IRQ not in use!\n", DEV_NAME);
+            ReleaseIO();
+            goto ERROR_PROVE_DEVICE;
+        }
+    }
+    else
+    {
+        printk(KERN_INFO "VE3: IRQ not in use!\n");
+    }
 
-	pr_info("%s module inserted. Major = %d\n", DEV_NAME, hantrodec_major);
-	/* hantrodec_init end */
+    printk(KERN_INFO "VE3: module inserted. Major = %d\n", hantrodec_major);
+//== hantrodec_init end ==
 
-	ve3_clk_disable(s_ve3_clk);
+    ve3_clk_disable(s_ve3_clk);
 #ifdef CONFIG_POWER_CONTROL
-	ve3_pctrl_off(s_pctrl_ve3);
+    ve3_pctrl_off(s_pctrl_ve3);
 #endif
-	return 0;
+    return 0;
+
 
 ERROR_PROVE_DEVICE:
 
-	pr_info("%s module not inserted\n", DEV_NAME);
+    printk(KERN_INFO "VE3: module not inserted\n");
+    if (rstc_ve3 != NULL)
+        reset_control_put(rstc_ve3);
+    ve3_clk_put(s_ve3_clk);
+    misc_deregister(&s_ve3_dev);
 
-	if (rstc_ve3 != NULL)
-		reset_control_put(rstc_ve3);
-
-	ve3_clk_put(s_ve3_clk);
-	misc_deregister(&s_ve3_dev);
-
-	return err;
+    return err;
 }
 
 static int ve3_remove(struct platform_device *pdev)
 {
-	hantrodec_t *dev = (hantrodec_t *)&hantrodec_data;
+    printk(KERN_INFO "VE3: ve3_remove\n");
+    hantrodec_t *dev = (hantrodec_t *)&hantrodec_data;
 
-	pr_info("%s ve3_remove\n", DEV_NAME);
+    /* reset hardware */
+    ResetAsic(dev);
 
-	/* reset hardware */
-	ResetAsic(dev);
+    /* free the IRQ */
+    if(dev->irq != -1)
+    {
+        free_irq(dev->irq, (void *) dev);
+    }
 
-	/* free the IRQ */
-	if(dev->irq != -1)
-	{
-		free_irq(dev->irq, (void *) dev);
-	}
+    ReleaseIO();
 
-	ReleaseIO();
+    if (rstc_ve3 != NULL)
+        reset_control_put(rstc_ve3);
 
-	if (rstc_ve3 != NULL)
-		reset_control_put(rstc_ve3);
+    ve3_clk_put(s_ve3_clk);
 
-	ve3_clk_put(s_ve3_clk);
+    misc_deregister(&s_ve3_dev);
 
-	misc_deregister(&s_ve3_dev);
-
-	pr_info("%s hantrodec: module removed\n", DEV_NAME);
-
-	return 0;
+    printk(KERN_INFO "hantrodec: module removed\n");
+    return 0;
 }
 
 #ifdef CONFIG_PM
-static int ve3_suspend(struct device *pdev)
+static int ve3_suspend(struct platform_device *pdev, pm_message_t state)
 {
 
-	pr_info("%s Enter %s\n", DEV_NAME, __func__);
+    printk(KERN_INFO "[RTK_VE3] Enter %s\n", __func__);
 
 #ifdef CONFIG_POWER_CONTROL
-	ve3_pctrl_on(s_pctrl_ve3);
+    ve3_pctrl_on(s_pctrl_ve3);
 #endif
-	ve3_clk_enable(s_ve3_clk);
+    ve3_clk_enable(s_ve3_clk);
 
-	if (dec_owner[0] != NULL)
-	{
-		up(&dec_core_sem);
-		wake_up_interruptible_all(&hw_queue);
-		wake_up_interruptible_all(&dec_wait_queue);
-		dec_irq = 0;
-		dec_owner[0] = NULL;
-	}
+    if (dec_owner[0] != NULL)
+    {
+        up(&dec_core_sem);
+        wake_up_interruptible_all(&hw_queue);
+        wake_up_interruptible_all(&dec_wait_queue);
+        dec_irq = 0;
+        dec_owner[0] = NULL;
+    }
 
-	ve3_clk_disable(s_ve3_clk);
+    ve3_clk_disable(s_ve3_clk);
 #ifdef CONFIG_POWER_CONTROL
-	ve3_pctrl_off(s_pctrl_ve3);
+    ve3_pctrl_off(s_pctrl_ve3);
 #endif
 
-	pr_info("%s Exit %s\n", DEV_NAME, __func__);
+    printk(KERN_INFO "[RTK_VE3] Exit %s\n", __func__);
 
-	return 0;
+    return 0;
 }
 
-static int ve3_resume(struct device *pdev)
+static int ve3_resume(struct platform_device *pdev)
 {
-	pr_info("%s Enter %s\n", DEV_NAME,  __func__);
+    printk(KERN_INFO "[RTK_VE3] Enter %s\n", __func__);
 
 #ifdef CONFIG_POWER_CONTROL
-	ve3_pctrl_on(s_pctrl_ve3);
+    ve3_pctrl_on(s_pctrl_ve3);
 #endif
-	ve3_clk_enable(s_ve3_clk);
-	/* RTK clock setting */
-	ve3_pll_setting(0x114, PLL_CLK_594, 1, 0); // VE1 PLL
-	ve3_pll_setting(0x118, (0x7), 1, 0); // VE1 PLL disable
-	__delay(100);
-	ve3_pll_setting(0x118, (0x3), 1, 0); // VE1 PLL enable
-	ve3_clk_disable(s_ve3_clk);
+    ve3_clk_enable(s_ve3_clk);
+    /* RTK clock setting */
+    ve3_pll_setting(0x114, PLL_CLK_594, 1, 0); // VE1 PLL
+    ve3_pll_setting(0x118, (0x7), 1, 0); // VE1 PLL disable
+    __delay(100);
+    ve3_pll_setting(0x118, (0x3), 1, 0); // VE1 PLL enable
+    ve3_clk_disable(s_ve3_clk);
 #ifdef CONFIG_POWER_CONTROL
-	ve3_pctrl_off(s_pctrl_ve3);
+    ve3_pctrl_off(s_pctrl_ve3);
 #endif
 
-	pr_info("%s  Exit %s\n", DEV_NAME, __func__);
+    printk(KERN_INFO "[RTK_VE3] Exit %s\n", __func__);
 
-	return 0;
+    return 0;
 }
 #else
-#define ve3_suspend NULL
-#define ve3_resume NULL
-#endif /* !CONFIG_PM */
+#define	ve3_suspend	NULL
+#define	ve3_resume	NULL
+#endif				/* !CONFIG_PM */
 
 /*------------------------------------------------------------------------------
  Function name   : ReserveIO
- Description	 : IO reserve
+ Description     : IO reserve
 
- Return type	 : int
+ Return type     : int
 ------------------------------------------------------------------------------*/
 static int ReserveIO(void)
 {
-	int i;
+    int i;
 
-	for (i = 0 ; i < HXDEC_MAX_CORES ; i++) {
-		if (multicorebase[i] != -1) {
+    for (i = 0; i < HXDEC_MAX_CORES; i++)
+    {
+        if (multicorebase[i] != -1)
+        {
 #if 0
-			if (!request_mem_region(multicorebase[i], hantrodec_data.iosize, "hantrodec0")) {
-				pr_info("%s failed to reserve HW regs\n", DEV_NAME);
-				return -EBUSY;
-			}
+            if (!request_mem_region(multicorebase[i], hantrodec_data.iosize,
+                                    "hantrodec0"))
+            {
+                printk(KERN_INFO "VE3: failed to reserve HW regs\n");
+                return -EBUSY;
+            }
 
-			hantrodec_data.hwregs[i] = (volatile u8 *) ioremap_nocache(multicorebase[i], hantrodec_data.iosize);
+            hantrodec_data.hwregs[i] = (volatile u8 *) ioremap_nocache(multicorebase[i],
+                                       hantrodec_data.iosize);
 #else
-			hantrodec_data.hwregs[i] = base_address;
+            hantrodec_data.hwregs[i] = base_address;
 #endif
-			if (hantrodec_data.hwregs[i] == NULL ) {
-				pr_info("%s failed to ioremap HW regs\n", DEV_NAME);
-				ReleaseIO();
-				return -EBUSY;
-			}
-			hantrodec_data.cores++;
-		}
-	}
+            if (hantrodec_data.hwregs[i] == NULL )
+            {
+                printk(KERN_INFO "VE3: failed to ioremap HW regs\n");
+                ReleaseIO();
+                return -EBUSY;
+            }
+            hantrodec_data.cores++;
+        }
+    }
 
-	return 0;
+    return 0;
 }
 
 /*------------------------------------------------------------------------------
- Function name : releaseIO
- Description	 : release
+ Function name   : releaseIO
+ Description     : release
 
- Return type : void
+ Return type     : void
 ------------------------------------------------------------------------------*/
 
 static void ReleaseIO(void)
 {
-	int i;
-
-	for (i = 0 ; i < hantrodec_data.cores ; i++) {
+    int i;
+    for (i = 0; i < hantrodec_data.cores; i++)
+    {
 #if 0
-		if (hantrodec_data.hwregs[i])
-			iounmap((void *) hantrodec_data.hwregs[i]);
-		release_mem_region(multicorebase[i], hantrodec_data.iosize);
+        if (hantrodec_data.hwregs[i])
+            iounmap((void *) hantrodec_data.hwregs[i]);
+        release_mem_region(multicorebase[i], hantrodec_data.iosize);
 #endif
-	}
+    }
 }
 
 /*------------------------------------------------------------------------------
  Function name   : hantrodec_isr
- Description	 : interrupt handler
+ Description     : interrupt handler
 
- Return type	 : irqreturn_t
+ Return type     : irqreturn_t
 ------------------------------------------------------------------------------*/
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18))
 irqreturn_t hantrodec_isr(int irq, void *dev_id, struct pt_regs *regs)
@@ -1207,179 +1230,186 @@ irqreturn_t hantrodec_isr(int irq, void *dev_id, struct pt_regs *regs)
 irqreturn_t hantrodec_isr(int irq, void *dev_id)
 #endif
 {
-	unsigned long flags;
-	unsigned int handled = 0;
-	int i;
+    unsigned long flags;
+    unsigned int handled = 0;
+    int i;
 
-	hantrodec_t *dev = (hantrodec_t *) dev_id;
-	u32 irq_status_dec;
+    hantrodec_t *dev = (hantrodec_t *) dev_id;
+    u32 irq_status_dec;
 
-	spin_lock_irqsave(&owner_lock, flags);
+    spin_lock_irqsave(&owner_lock, flags);
 
-	for (i = 0 ; i < dev->cores ; i++) {
-		volatile u8 *hwregs = dev->hwregs[i];
+    for(i=0; i<dev->cores; i++)
+    {
+        volatile u8 *hwregs = dev->hwregs[i];
 
-		/* interrupt status register read */
-		irq_status_dec = ioread32(hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
+        /* interrupt status register read */
+        irq_status_dec = ioread32(hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
 
-		if(irq_status_dec & HANTRODEC_DEC_IRQ) {
-			/* clear dec IRQ */
-			irq_status_dec &= (~HANTRODEC_DEC_IRQ);
-			iowrite32(irq_status_dec, hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
+        if(irq_status_dec & HANTRODEC_DEC_IRQ)
+        {
+            /* clear dec IRQ */
+            irq_status_dec &= (~HANTRODEC_DEC_IRQ);
+            iowrite32(irq_status_dec, hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
 
-			PDEBUG("%s decoder IRQ received! core %d\n", DEV_NAME, i);
+            PDEBUG("decoder IRQ received! core %d\n", i);
 
-			atomic_inc(&irq_rx);
+            atomic_inc(&irq_rx);
 
-			dec_irq |= (1 << i);
+            dec_irq |= (1 << i);
 
-			wake_up_interruptible_all(&dec_wait_queue);
-			handled++;
-		}
-	}
+            wake_up_interruptible_all(&dec_wait_queue);
+            handled++;
+        }
+    }
 
-	spin_unlock_irqrestore(&owner_lock, flags);
+    spin_unlock_irqrestore(&owner_lock, flags);
 
-	if(!handled)
-		PDEBUG("%s IRQ received, but not VE3's!\n", DEV_NAME);
+    if(!handled)
+    {
+        PDEBUG("IRQ received, but not VE3's!\n");
+    }
 
-	return IRQ_RETVAL(handled);
+    return IRQ_RETVAL(handled);
 }
 
 /*------------------------------------------------------------------------------
  Function name   : ResetAsic
- Description	 : reset asic
+ Description     : reset asic
 
- Return type	 :
+ Return type     :
 ------------------------------------------------------------------------------*/
 void ResetAsic(hantrodec_t * dev)
 {
-	int i;
-	int j;
-	u32 status;
+    int i, j;
+    u32 status;
 
-	for (j = 0 ; j < dev->cores ; j++) {
-		status = ioread32(dev->hwregs[j] + HANTRODEC_IRQ_STAT_DEC_OFF);
+    for (j = 0; j < dev->cores; j++)
+    {
+        status = ioread32(dev->hwregs[j] + HANTRODEC_IRQ_STAT_DEC_OFF);
 
-		if( status & HANTRODEC_DEC_E) {
-			/* abort with IRQ disabled */
-			status = HANTRODEC_DEC_ABORT | HANTRODEC_DEC_IRQ_DISABLE;
-			iowrite32(status, dev->hwregs[j] + HANTRODEC_IRQ_STAT_DEC_OFF);
-		}
+        if( status & HANTRODEC_DEC_E)
+        {
+            /* abort with IRQ disabled */
+            status = HANTRODEC_DEC_ABORT | HANTRODEC_DEC_IRQ_DISABLE;
+            iowrite32(status, dev->hwregs[j] + HANTRODEC_IRQ_STAT_DEC_OFF);
+        }
 
-		for (i = 4 ; i < dev->iosize ; i += 4) {
-			iowrite32(0, dev->hwregs[j] + i);
-		}
-	}
+        for (i = 4; i < dev->iosize; i += 4)
+        {
+            iowrite32(0, dev->hwregs[j] + i);
+        }
+    }
 }
 
 /*------------------------------------------------------------------------------
  Function name   : dump_regs
- Description	 : Dump registers
+ Description     : Dump registers
 
- Return type	 :
+ Return type     :
 ------------------------------------------------------------------------------*/
 #ifdef HANTRODEC_DEBUG
 void dump_regs(hantrodec_t *dev)
 {
-	int i,c;
+    int i,c;
 
-	PDEBUG("%s Reg Dump Start\n", DEV_NAME);
-	for(c = 0 ; c < dev->cores ; c++) {
-		for(i = 0 ; i < dev->iosize ; i += 4*4) {
-			PDEBUG("%s \toffset %04X: %08X  %08X  %08X  %08X\n",
-				DEV_NAME,
-				i,
-				ioread32(dev->hwregs[c] + i),
-				ioread32(dev->hwregs[c] + i + 4),
-				ioread32(dev->hwregs[c] + i + 16),
-				ioread32(dev->hwregs[c] + i + 24));
-		}
-	}
-	PDEBUG("%s Reg Dump End\n", DEV_NAME);
+    PDEBUG("Reg Dump Start\n");
+    for(c = 0; c < dev->cores; c++)
+    {
+        for(i = 0; i < dev->iosize; i += 4*4)
+        {
+            PDEBUG("\toffset %04X: %08X  %08X  %08X  %08X\n", i,
+                   ioread32(dev->hwregs[c] + i),
+                   ioread32(dev->hwregs[c] + i + 4),
+                   ioread32(dev->hwregs[c] + i + 16),
+                   ioread32(dev->hwregs[c] + i + 24));
+        }
+    }
+    PDEBUG("Reg Dump End\n");
 }
 #endif
 
 struct clk *ve3_clk_get(struct device *dev)
 {
-	return clk_get(dev, "clk_ve3");
+    return clk_get(dev, "clk_ve3");
 }
-
 void ve3_clk_put(struct clk *clk)
 {
-	if (clk)
-		clk_put(clk);
+    if (clk)
+        clk_put(clk);
 }
-
 int ve3_clk_enable(struct clk *clk)
 {
-	if (clk) {
-		PDEBUG("%s ve3_clk_enable\n", DEV_NAME);
-		return clk_prepare_enable(clk);
-	}
-	return 0;
+    if (clk) {
+        PDEBUG("ve3_clk_enable\n");
+        return clk_prepare_enable(clk);
+    }
+    return 0;
 }
 
 void ve3_clk_disable(struct clk *clk)
 {
-	if (clk) {
-		PDEBUG("%s ve3_clk_disable\n", DEV_NAME);
-		while(__clk_is_enabled(clk))
-			clk_disable_unprepare(clk);
-	}
+    if (clk) {
+        PDEBUG("ve3_clk_disable\n");
+        while(__clk_is_enabled(clk))
+            clk_disable_unprepare(clk);
+    }
 }
 
 #ifdef CONFIG_POWER_CONTROL
 struct power_control *ve3_pctrl_get(void)
 {
-	return power_control_get("pctrl_ve3");
+    return power_control_get("pctrl_ve3");
 }
 
 void ve3_pctrl_on(struct power_control *pctrl)
 {
-	if (!(pctrl == NULL || IS_ERR(pctrl))) {
-		printk(KERN_INFO "ve3_pctrl_on\n");
-		power_control_power_on(pctrl);
-	}
+    if (!(pctrl == NULL || IS_ERR(pctrl))) {
+        printk(KERN_INFO "ve3_pctrl_on\n");
+        power_control_power_on(pctrl);
+    }
 }
 
 void ve3_pctrl_off(struct power_control *pctrl)
 {
-	if (!(pctrl == NULL || IS_ERR(pctrl))) {
-		printk(KERN_INFO "ve3_pctrl_off\n");
-		power_control_power_off(pctrl);
-	}
+    if (!(pctrl == NULL || IS_ERR(pctrl))) {
+        printk(KERN_INFO "ve3_pctrl_off\n");
+        power_control_power_off(pctrl);
+    }
 }
 #endif
 
 static const struct of_device_id rtk_ve3_dt_match[] = {
-	{.compatible = "Realtek,rtk1295-ve3"},
-	{}
+    { .compatible = "Realtek,rtk1295-ve3" },
+    {}
 };
 MODULE_DEVICE_TABLE(of, rtk_ve3_dt_match);
 
 const struct dev_pm_ops rtk_ve3_pmops = {
-	.suspend = ve3_suspend,
-	.resume = ve3_resume,
+    .suspend    = ve3_suspend,
+    .resume     = ve3_resume,
 };
 
 static struct platform_driver rtk_ve3_driver = {
-	.driver = {
-		.name = "rtk-ve3",
-		.owner = THIS_MODULE,
-		.of_match_table = rtk_ve3_dt_match,
-		.pm = &rtk_ve3_pmops,
-	},
-	.probe = ve3_probe,
-	.remove = ve3_remove,
+    .driver		= {
+        .name	= "rtk-ve3",
+        .owner	= THIS_MODULE,
+        .of_match_table = rtk_ve3_dt_match,
+        //.pm	= SDHCI_PLTFM_PMOPS,
+        .pm	= &rtk_ve3_pmops,
+    },
+    .probe		= ve3_probe,
+    .remove		= ve3_remove,
 };
 
 module_platform_driver(rtk_ve3_driver);
 
-module_init(hantrodec_init);
-module_exit(hantrodec_cleanup);
+
+module_init( hantrodec_init);
+module_exit( hantrodec_cleanup);
 
 /* module description */
 MODULE_LICENSE("Proprietary");
 MODULE_AUTHOR("A customer using RTK VPU, Inc.");
 MODULE_DESCRIPTION("Driver module for VE3");
+

@@ -10,9 +10,10 @@ dtb-$(CONFIG_ARCH_RTD129x) += rtd-1295-qa-rescue.dtb
 dtb-$(CONFIG_ARCH_RTD129x) += rtd-1295-xen-giraffe.dtb
 dtb-$(CONFIG_ARCH_RTD129x) += rtd-1294-giraffe-1GB.dtb
 dtb-$(CONFIG_ARCH_RTD129x) += rtd-1296-qa-rescue.dtb
-dtb-$(CONFIG_ARCH_RTD129x) += rtd-1295-recovery.dtb 
+dtb-$(CONFIG_ARCH_RTD129x) += rtd-1295-recovery.dtb
 dtb-$(CONFIG_ARCH_RTD129x) += rtd-1296-saola-2GB.dtb
 dtb-$(CONFIG_ARCH_RTD129x) += rtd-1296-saola-2GB-tee.dtb
+dtb-$(CONFIG_ARCH_RTD129x) += rtd-1295-quastation.dtb
 
 
 always		:= $(dtb-y)

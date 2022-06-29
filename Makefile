@@ -1593,3 +1593,67 @@ FORCE:
 # Declare the contents of the .PHONY variable as phony.  We keep that
 # information in a variable so we can use it in if_changed and friends.
 .PHONY: $(PHONY)
+
+
+# -----------------------------------------------------------------------
+# Appended command (for convenience)
+# ref: https://github.com/BPI-SINOVOIP/BPI-W2-bsp/blob/master/Makefile
+# -----------------------------------------------------------------------
+
+# base directory
+BASE_DIRECTORY := $(shell pwd)
+
+# cross compile prefix
+CROSS_COMPILE := aarch64-linux-gnu-
+
+# get processor count
+J := $(shell expr `grep ^processor /proc/cpuinfo  | wc -l` \* 2)
+
+# enable gcc colors
+export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
+
+kernel-build:
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Building the kernel...'
+	@echo '--------------------------------------------------------------------------------'
+	cp ${BASE_DIRECTORY}/arch/arm64/configs/rtd1295_quastation_defconfig ${BASE_DIRECTORY}/.config
+	$(Q)$(MAKE) ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} -j$J INSTALL_MOD_PATH=output Image dtbs
+	$(Q)$(MAKE) ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} -j$J INSTALL_MOD_PATH=output modules
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Installing kernel modules...'
+	@echo '--------------------------------------------------------------------------------'
+	$(Q)$(MAKE) ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} -j$J INSTALL_MOD_PATH=output modules_install
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Installing kernel headers...'
+	@echo '--------------------------------------------------------------------------------'
+	${BASE_DIRECTORY}/install_kernel_headers.sh $(CROSS_COMPILE)
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Installing prebuilt binaries...'
+	@echo '--------------------------------------------------------------------------------'
+	cp -a ${BASE_DIRECTORY}/prebuilt/firmware/* ${BASE_DIRECTORY}/output/lib/firmware/
+	cp -a ${BASE_DIRECTORY}/prebuilt/openmax/* ${BASE_DIRECTORY}/output/
+	mkdir -p ${BASE_DIRECTORY}/output/lib/modules/4.1.17-quastation/kernel/extra/
+	cp -a ${BASE_DIRECTORY}/prebuilt/gpio_isr_ko ${BASE_DIRECTORY}/output/lib/modules/4.1.17-quastation/kernel/extra/gpio_isr.ko
+	depmod --all --basedir=${BASE_DIRECTORY}/output/ 4.1.17-quastation
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Creating a package for USB flash...'
+	@echo '--------------------------------------------------------------------------------'
+	rm -rf ${BASE_DIRECTORY}/usbflash/
+	mkdir -p ${BASE_DIRECTORY}/usbflash/
+	mkdir -p ${BASE_DIRECTORY}/usbflash/bootfs/
+	cp -a ${BASE_DIRECTORY}/arch/arm64/boot/Image ${BASE_DIRECTORY}/usbflash/bootfs/uImage
+	cp -a ${BASE_DIRECTORY}/arch/arm64/boot/dts/realtek/rtd-1295-quastation.dtb ${BASE_DIRECTORY}/usbflash/bootfs/QuaStation.dtb
+	mkdir -p ${BASE_DIRECTORY}/usbflash/rootfs/
+	cp -a ${BASE_DIRECTORY}/output/* ${BASE_DIRECTORY}/usbflash/rootfs/
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Build completed.'
+	@echo '--------------------------------------------------------------------------------'
+
+kernel-clean:
+	$(Q)$(MAKE) ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} -j$J distclean
+	rm -rf ${BASE_DIRECTORY}/output/
+
+kernel-config:
+	cp ${BASE_DIRECTORY}/arch/arm64/configs/rtd1295_quastation_defconfig ${BASE_DIRECTORY}/.config
+	$(Q)$(MAKE) ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} -j$J menuconfig
+	cp ${BASE_DIRECTORY}/.config ${BASE_DIRECTORY}/arch/arm64/configs/rtd1295_quastation_defconfig

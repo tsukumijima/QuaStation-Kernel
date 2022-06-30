@@ -1,3 +1,0 @@
-#define PKG_VERSION "0.71"
-#define ROMEDRIVER_VERSION "4.1"
-#define WLANDRVPKG_VERSION "1.14"

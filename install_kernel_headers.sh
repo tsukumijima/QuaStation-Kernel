@@ -4,7 +4,7 @@
 # ref: https://github.com/BPI-SINOVOIP/BPI-W2-bsp/blob/master/scripts/install_kernel_headers.sh
 #
 
-LINUX=`pwd`
+LINUX="`pwd`/linux"
 DEST="$LINUX/output"
 
 echo "Using Linux from $LINUX ..."

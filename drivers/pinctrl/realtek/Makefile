@@ -1,1 +1,0 @@
-obj-$(CONFIG_PINCTRL_RTD1295)	+= pinctrl-rtd1295.o

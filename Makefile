@@ -22,12 +22,18 @@ build:
 	cp $(LINUX_DIR)/arch/arm64/configs/rtd1295_quastation_defconfig $(LINUX_DIR)/.config
 	$(Q)$(MAKE) -C linux/ ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) -j$J INSTALL_MOD_PATH=output/ Image dtbs
 	$(Q)$(MAKE) -C linux/ ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) -j$J INSTALL_MOD_PATH=output/ modules
-	mkdir -p $(LINUX_DIR)/output/lib/modules/4.1.17/kernel/extra/
-	$(Q)$(MAKE) -C phoenix/drivers ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) TARGET_KDIR=$(LINUX_DIR) -j$J INSTALL_MOD_PATH=output/
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Installing kernel modules...'
 	@echo '--------------------------------------------------------------------------------'
 	$(Q)$(MAKE) -C linux/ ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) -j$J INSTALL_MOD_PATH=output/ modules_install
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Building phoenix drivers...'
+	@echo '--------------------------------------------------------------------------------'
+	mkdir -p $(LINUX_DIR)/output/lib/modules/4.1.17/kernel/extra/
+	$(Q)$(MAKE) -C phoenix/drivers ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) TARGET_KDIR=$(LINUX_DIR) -j$J INSTALL_MOD_PATH=output/
+	@echo '--------------------------------------------------------------------------------'
+	@echo 'Installing phoenix drivers...'
+	@echo '--------------------------------------------------------------------------------'
 	$(Q)$(MAKE) -C phoenix/drivers ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) TARGET_KDIR=$(LINUX_DIR) -j$J INSTALL_MOD_PATH=output/ install
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Installing kernel headers...'

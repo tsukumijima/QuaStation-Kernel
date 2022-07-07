@@ -1,10 +1,9 @@
 TOP ?= ..
 
 DIRS :=
+DIRS += gpio_isr
 DIRS += gpu
-DIRS += gator
 DIRS += wifi
-DIRS += bluetooth
 
 .PHONY: all clean $(DIRS)
 

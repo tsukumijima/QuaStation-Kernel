@@ -16,7 +16,7 @@ J := $(shell expr `grep ^processor /proc/cpuinfo  | wc -l` \* 2)
 export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
 
 # create a directory for your build to reduce the size of your build context
-build-docker-image:
+docker-image:
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Building Docker image...'
 	@echo '--------------------------------------------------------------------------------'
@@ -59,7 +59,7 @@ build-in-container:
 	@echo '--------------------------------------------------------------------------------'
 	cp -a $(BASE_DIR)/prebuilt/rtlbt/ $(LINUX_DIR)/output/lib/firmware/
 	cp -a $(BASE_DIR)/prebuilt/openmax/* $(LINUX_DIR)/output/
-	cp -a $(BASE_DIR)/prebuilt/gpio_isr.ko $(LINUX_DIR)/output/lib/modules/4.1.17/kernel/extra/
+	rm $(LINUX_DIR)/output/lib/modules/4.1.17/kernel/extra/mali_kbase.ko  # because currently doesn't work
 	depmod --all --basedir=$(LINUX_DIR)/output/ 4.1.17
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Creating a package for USB flash...'

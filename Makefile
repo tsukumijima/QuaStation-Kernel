@@ -44,7 +44,7 @@ build-in-container:
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Building phoenix drivers...'
 	@echo '--------------------------------------------------------------------------------'
-	mkdir -p $(LINUX_DIR)/output/lib/modules/4.1.17/kernel/extra/
+	mkdir -p $(LINUX_DIR)/output/lib/modules/4.1.17-quastation/kernel/extra/
 	$(Q)$(MAKE) -C phoenix/drivers ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) TARGET_KDIR=$(LINUX_DIR) -j$J INSTALL_MOD_PATH=output/
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Installing phoenix drivers...'
@@ -59,8 +59,8 @@ build-in-container:
 	@echo '--------------------------------------------------------------------------------'
 	cp -a $(BASE_DIR)/prebuilt/rtlbt/ $(LINUX_DIR)/output/lib/firmware/
 	cp -a $(BASE_DIR)/prebuilt/openmax/* $(LINUX_DIR)/output/
-	rm $(LINUX_DIR)/output/lib/modules/4.1.17/kernel/extra/mali_kbase.ko  # because currently doesn't work
-	depmod --all --basedir=$(LINUX_DIR)/output/ 4.1.17
+	rm $(LINUX_DIR)/output/lib/modules/4.1.17-quastation/kernel/extra/mali_kbase.ko  # because currently doesn't work
+	depmod --all --basedir=$(LINUX_DIR)/output/ 4.1.17-quastation
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'Creating a package for USB flash...'
 	@echo '--------------------------------------------------------------------------------'

@@ -281,7 +281,7 @@ static int gpio_button_remove(struct platform_device *pDev)
             free_irq(gpioButtonList[count].irqNumber, &gpioButtonList[count]);
             tasklet_kill(&gpioButtonList[count].tasklet);
             gpio_free(gpioButtonList[count].gpioNumber);
-            printk(KERN_ERR "[gpio_isr] release memory of %s button.\n", gpioButtonList[count].pName);
+            printk(KERN_INFO "[gpio_isr] release memory of %s button.\n", gpioButtonList[count].pName);
         }
     }
 

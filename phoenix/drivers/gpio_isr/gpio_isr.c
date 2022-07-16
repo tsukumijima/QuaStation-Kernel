@@ -33,17 +33,17 @@ static struct askey_gpio_button gpioButtonList[4];  // POWER, RESET, WPS, IMPORT
 
 static void send_uevent(char *pButtonEventName)
 {
-	char eventString[20];  // max 20 letter (include \0)
-	char *envp[] = { eventString, NULL };
+    char eventString[20];  // max 20 letter (include \0)
+    char *envp[] = { eventString, NULL };
     int ret;
 
     if (pKobject != 0 && pButtonEventName != 0) {
 
         // set button event name (POWER, RESET, INIT, WPS_DOWN, WPS_UP, IMPORT, UNMOUNT)
-		snprintf(eventString, 20, "button=%s", pButtonEventName);
+        snprintf(eventString, 20, "button=%s", pButtonEventName);
 
         // send uevent with the button event name
-		ret = kobject_uevent_env(pKobject, KOBJ_CHANGE, envp);
+        ret = kobject_uevent_env(pKobject, KOBJ_CHANGE, envp);
         if (ret) {
             printk(KERN_ERR "[gpio_isr] failed to send %s uevent. (ret: %d)\n", pButtonEventName, ret);
         } else {
@@ -187,7 +187,7 @@ static int gpio_button_probe(struct platform_device *pDevice)
     struct device_node *pDeviceChildNode;
     struct askey_gpio_button *pGpioButton;
     struct property *pGpioButtonProp;
-	enum of_gpio_flags gpioFlags;
+    enum of_gpio_flags gpioFlags;
     int gpioButtonCount = 0;
     int count = 0;
     int err;
@@ -202,19 +202,19 @@ static int gpio_button_probe(struct platform_device *pDevice)
 
     printk(KERN_INFO "[gpio_isr] device name: %s\n", pDevice->name);
     pDeviceNode = pDevice->dev.of_node;
-	if (!pDeviceNode) {
+    if (!pDeviceNode) {
         printk(KERN_ERR "[gpio_isr] failed to get pDevice->dev.of_node\n");
         return -ENODEV;
     }
 
-	gpioButtonCount = of_get_child_count(pDeviceNode);
-	if (gpioButtonCount != 4) {
+    gpioButtonCount = of_get_child_count(pDeviceNode);
+    if (gpioButtonCount != 4) {
         printk(KERN_ERR "[gpio_isr] gpioButtonCount is %d (expected 4).\n", gpioButtonCount);
-		return -ENODEV;
+        return -ENODEV;
     }
 
     // run for each child node of "gpio-btns" (POWER, RESET, WPS, IMPORT)
-	for_each_child_of_node(pDeviceNode, pDeviceChildNode) {
+    for_each_child_of_node(pDeviceNode, pDeviceChildNode) {
 
         if (!pDeviceChildNode) {
             printk(KERN_ERR "[gpio_isr] pDeviceChildNode not found.\n");
@@ -225,7 +225,7 @@ static int gpio_button_probe(struct platform_device *pDevice)
         pGpioButtonProp = of_find_property(pDeviceChildNode, "gpios", NULL);
         if (!pGpioButtonProp) {
             printk(KERN_ERR "[gpio_isr] failed to get \"gpios\" prop from device-tree.\n");
-		    return -ENODEV;
+            return -ENODEV;
         }
 
         pGpioButton = &gpioButtonList[count];
@@ -238,14 +238,14 @@ static int gpio_button_probe(struct platform_device *pDevice)
         pGpioButton->irqNumber = gpiod_to_irq(pGpioButton->pGpioDesc);
         if (pGpioButton->irqNumber < 1) {
             printk(KERN_ERR "[gpio_isr] failed to get irq number.\n");
-		    return -EPERM;
+            return -EPERM;
         }
 
         // gpio registration
         err = gpio_request(pGpioButton->gpioNumber, pDeviceChildNode->name);
         if (err) {
             printk(KERN_ERR "[gpio_isr] failed to request gpio.\n");
-		    return -EPERM;
+            return -EPERM;
         }
 
         // request irq (register top half)
@@ -253,7 +253,7 @@ static int gpio_button_probe(struct platform_device *pDevice)
         if (err) {
             gpio_free(pGpioButton->gpioNumber);
             printk(KERN_ERR "[gpio_isr] failed to request irq.\n");
-		    return -EPERM;
+            return -EPERM;
         }
 
         // register bottom half
@@ -300,17 +300,17 @@ static int gpio_button_remove(struct platform_device *pDev)
 
 
 static const struct of_device_id gpioButtonMatchTable[] = {
-	{ .compatible = "Askey,gpio-btns", },
-	{},
+    { .compatible = "Askey,gpio-btns", },
+    {},
 };
 
 static struct platform_driver gpioButtonDriver = {
-	.probe		= gpio_button_probe,
-	.remove		= gpio_button_remove,
-	.driver		= {
-		.name	= "gpio_isr",
-		.of_match_table = gpioButtonMatchTable,
-	},
+    .probe    = gpio_button_probe,
+    .remove   = gpio_button_remove,
+    .driver   = {
+        .name = "gpio_isr",
+        .of_match_table = gpioButtonMatchTable,
+    },
 };
 
 module_platform_driver(gpioButtonDriver);

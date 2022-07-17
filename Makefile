@@ -18,13 +18,13 @@ export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quo
 # create a directory for your build to reduce the size of your build context
 docker-image:
 	@echo '--------------------------------------------------------------------------------'
-	@echo 'Building Docker image...'
+	@echo 'Building Docker image for au kernel...'
 	@echo '--------------------------------------------------------------------------------'
 	mkdir -p build
 	docker build -t quastation-kernel -f Dockerfile build/
 	rmdir build
 	@echo '--------------------------------------------------------------------------------'
-	@echo 'Docker image build is completed.'
+	@echo 'Docker image for au kernel build is completed.'
 	@echo '--------------------------------------------------------------------------------'
 
 build:
@@ -32,7 +32,7 @@ build:
 
 build-in-container:
 	@echo '--------------------------------------------------------------------------------'
-	@echo 'Building the kernel...'
+	@echo 'Building au kernel (Linux 4.1.17)...'
 	@echo '--------------------------------------------------------------------------------'
 	cp $(LINUX_DIR)/arch/arm64/configs/rtd1295_quastation_defconfig $(LINUX_DIR)/.config
 	$(Q)$(MAKE) -C linux/ ARCH=arm64 CROSS_COMPILE=$(CROSS_COMPILE) -j$J INSTALL_MOD_PATH=output/ Image dtbs
@@ -73,7 +73,7 @@ build-in-container:
 	cp -a $(LINUX_DIR)/output/* $(BASE_DIR)/usbflash/rootfs/
 	chown -R root:root usbflash/
 	@echo '--------------------------------------------------------------------------------'
-	@echo 'Kernel build is completed.'
+	@echo 'au kernel (Linux 4.1.17) build is completed.'
 	@echo '--------------------------------------------------------------------------------'
 
 config:

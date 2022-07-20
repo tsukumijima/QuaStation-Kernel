@@ -34,6 +34,12 @@ static inline void kref_init(struct kref *kref)
 	atomic_set(&kref->refcount, 1);
 }
 
+// backport from linux 4.11
+static inline unsigned int kref_read(struct kref *kref)
+{
+	return atomic_read(&kref->refcount);
+}
+
 /**
  * kref_get - increment refcount for object.
  * @kref: object.

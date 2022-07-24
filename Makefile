@@ -71,6 +71,8 @@ build-in-container:
 	cp -a $(LINUX_DIR)/arch/arm64/boot/dts/realtek/rtd-1295-quastation.dtb $(BASE_DIR)/usbflash/bootfs/QuaStation.dtb
 	mkdir -p $(BASE_DIR)/usbflash/rootfs/
 	cp -a $(LINUX_DIR)/output/* $(BASE_DIR)/usbflash/rootfs/
+	mv $(BASE_DIR)/usbflash/rootfs/lib/* $(BASE_DIR)/usbflash/rootfs/usr/lib/
+	rm -r $(BASE_DIR)/usbflash/rootfs/lib/
 	chown -R root:root usbflash/
 	@echo '--------------------------------------------------------------------------------'
 	@echo 'au kernel (Linux 4.1.17) build is completed.'

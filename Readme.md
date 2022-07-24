@@ -5,20 +5,22 @@ KDDI テクノロジーが [GPL/LGPL に基づき公開している](https://kdd
 
 Linux カーネルのバージョンは 4.1.17 ですが、mainline のカーネルと比較すると、Realtek SoC 向けの大幅なカスタマイズ（ Realtek SoC 固有のドライバやデバイスツリーの追加など）が行われています。  
 
+> 基本的には [QuaStation-Kernel-BPi](https://github.com/tsukumijima/QuaStation-Kernel-BPi) (Linux 4.9.119 ベース) の方を使うことをおすすめします。  
+> Linux 4.1.17 は古いですし、4.9.119 ベースのカーネルの方ができることが多いです。
+
 ## 既知の問題
 
 - **2つある PCIe 接続の Wi-FI IC (RTL8192EE: 2.4GHz, RTL8812AE: 5GHz) のうち、RTL8812AE が接続されている方の PCIe バス（PCIE2）が認識できず、起動中に `pci_bus 0001:01: pcie2 dllp error occur = 0xdeadbeef` のような大量のエラーログが出力される。**
   - Qua Station の eMMC に書き込まれている純正のカーネルでは問題なく PCIE2 を認識できているため、KDDI テクノロジーから配布された Linux カーネルに何らかのコーディングミスがある可能性が高いです。
   - そもそもデバイスツリーが eMMC から抽出した実機の DTB のデコンパイル結果と一致しておらず、（完成品に書き込まれているカーネルよりも前の）開発段階のカーネルのソースコードが配布されているのだろうと推測しています。
-  - 原因になりうる箇所を探したが、今のところ原因は特定できていません。なお、[QuaStation-Kernel-BPi](https://github.com/tsukumijima/QuaStation-Kernel-BPi) (4.9.119 ベース) では正常に PCIE2 と RTL8812AE を認識できています。
+  - 原因になりうる箇所を探したが、今のところ原因は特定できていません。なお、[QuaStation-Kernel-BPi](https://github.com/tsukumijima/QuaStation-Kernel-BPi) (Linux 4.9.119 ベース) では正常に PCIE2 と RTL8812AE を認識できています。
 - **シャットダウンすると、一見完全に電源が切れたように見えるものの、数十秒後にカーネルパニックが発生する。**
   - シャットダウンプロセスは完了したものの、ボードの電源を切れていないことが考えられます。
-  - Android 実機の Qua Station では、eMMC 内の U-Boot の環境変数領域にある PowerStatus フラグを off に書き換えた後に「再起動」する挙動になっているあたり、Qua Station はボード自体の電源オフに対応していないのかもしれません。
+  - Android 実機の Qua Station では、eMMC 内の U-Boot の環境変数領域にある PowerStatus フラグを off に書き換えた後に「再起動」する挙動になっているあたり、Qua Station はボード自体の電源オフには対応していないのかもしれません。
   - Qua Station の eMMC に内蔵されている U-Boot は Qua Station 向けにカスタマイズされており、環境変数の PowerStatus フラグ (環境変数は `env print` で確認できる) が off になっている場合はブート処理を行わず、PowerStatus が on になるまで待機するようになっています。
-  - Android 実機の Qua Station には `factory` という U-Boot の環境変数を Linux 側から読み書きするためのコマンドが同梱されています。ただ残念ながらソースコードが公開されておらず、Android 向けの実行ファイルのため実行することもできません。
-    - 一般的な U-Boot であれば環境変数を `fw_printenv` / `fw_setenv` コマンドで読み書きすることができるはずですが、現状動作していません…。
-    - eMMC を dd でダンプするなどして強引に読み取ることはできますが、書き込みには CRC32 と思われる環境変数すべてのハッシュ値を環境変数の保存領域 (env.txt) の先頭にセットする必要があるようで、難易度がかなり高いです。
-    - Qua Station の U-Boot の環境変数を Linux から読み書きすることに成功した方は、ぜひご一報いただけると助かります。eMMC からダンプしたデータは [こちら](https://github.com/tsukumijima/Storehouse/releases/tag/Storehouse) にあります。
+  - [QuaStation-Ubuntu](https://github.com/tsukumijima/QuaStation-Ubuntu) で生成できる Ubuntu の rootfs では、起動時に U-Boot の環境変数データが格納されている eMMC 上のアドレスを割り出して `/etc/fw_env.config` に書き出すように調整しています。
+    - POWER ボタンを3秒以上長押しすると、[fw_setenv](https://manpages.ubuntu.com/manpages/focal/man8/fw_setenv.8.html) コマンドで PowerStatus フラグを off に書き換えてから再起動されるように設定しています。
+    - こうすることで、実機同様に「シャットダウン」することができるようになりました（なお、この 4.1.17 カーネルで動作するかは検証していません）。
 
 ## カーネルのビルド
 

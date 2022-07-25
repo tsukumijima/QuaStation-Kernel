@@ -69,6 +69,7 @@ build-in-container:
 	mkdir -p $(BASE_DIR)/usbflash/bootfs/
 	cp -a $(LINUX_DIR)/arch/arm64/boot/Image $(BASE_DIR)/usbflash/bootfs/uImage
 	cp -a $(LINUX_DIR)/arch/arm64/boot/dts/realtek/rtd-1295-quastation.dtb $(BASE_DIR)/usbflash/bootfs/QuaStation.dtb
+	cp -a $(BASE_DIR)/prebuilt/bluecore.audio $(BASE_DIR)/usbflash/bootfs/bluecore.audio
 	mkdir -p $(BASE_DIR)/usbflash/rootfs/
 	cp -a $(LINUX_DIR)/output/* $(BASE_DIR)/usbflash/rootfs/
 	mv $(BASE_DIR)/usbflash/rootfs/lib/* $(BASE_DIR)/usbflash/rootfs/usr/lib/

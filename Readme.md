@@ -64,6 +64,7 @@ PC のスペックにもよりますが、カーネルのビルドには少し�
 
 - Linux カーネル (`bootfs/uImage`)
 - Device Tree Blob (`bootfs/QuaStation.dtb`)
+- Audio (AVCPU) ファームウェア (`bootfs/bluecore.audio`)
 - カーネルモジュール (`rootfs/usr/lib/modules/4.1.17-quastation/`)
 - カーネルヘッダー (`rootfs/usr/src/linux-headers-4.1.17-quastation/`)
 
